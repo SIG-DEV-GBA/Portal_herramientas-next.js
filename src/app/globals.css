@@ -1,26 +1,35 @@
 @import "tailwindcss";
 
+/* === Fuerza esquema claro en todo el site (incluye controles nativos) === */
+html { color-scheme: light; }
+
 :root {
+  /* Paleta base (claro) */
   --background: #ffffff;
   --foreground: #171717;
-}
 
-@theme inline {
+  /* Tokens para Tailwind v4 (@theme inline) */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Base */
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
 }
+
+/* Selección de texto (siempre en claro) */
+::selection { background: #c7d2fe; /* indigo-200 */ color: #111827; /* gray-900 */ }
+::-moz-selection { background: #c7d2fe; color: #111827; }
+input::selection, textarea::selection { background: #c7d2fe; color: #111827; }
+
+/* Accesibilidad de foco */
+:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
+
+/* (Opcional) enlaces heredan color y quitan subrayado por defecto */
+a { color: inherit; text-decoration: none; }

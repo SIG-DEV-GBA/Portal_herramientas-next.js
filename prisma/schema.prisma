@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "foreignKeys"
+}
+
+model ccaa {
+  id         Int          @id @default(autoincrement()) @db.UnsignedSmallInt
+  nombre     String       @unique(map: "uq_ccaa_nombre") @db.VarChar(100)
+  codigo_ine String?      @unique(map: "codigo_ine") @db.VarChar(4)
+  fichas     fichas[]
+  provincias provincias[]
+}
+
+model enlaces_base {
+  id       Int     @id @default(autoincrement()) @db.UnsignedTinyInt
+  nombre   String  @unique(map: "uq_enlaces_base_nombre") @db.VarChar(40)
+  base_url String  @db.VarChar(255)
+  activo   Boolean @default(true)
+}
+
+model ficha_portal {
+  ficha_id  BigInt   @db.UnsignedBigInt
+  portal_id Int      @db.UnsignedSmallInt
+  fichas    fichas   @relation(fields: [ficha_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_fp_ficha")
+  portales  portales @relation(fields: [portal_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_fp_portal")
+
+  @@id([ficha_id, portal_id])
+  @@index([portal_id], map: "ix_fp_portal")
+}
+
+model ficha_tematica {
+  ficha_id    BigInt    @db.UnsignedBigInt
+  tematica_id Int       @db.UnsignedSmallInt
+  orden       Int?      @db.SmallInt
+  fichas      fichas    @relation(fields: [ficha_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_ft_ficha")
+  tematicas   tematicas @relation(fields: [tematica_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ft_tema")
+
+  @@id([ficha_id, tematica_id])
+  @@index([orden], map: "ix_ft_orden")
+  @@index([tematica_id], map: "ix_ft_tematica")
+}
+
+model fichas {
+  id                   BigInt                      @id @default(autoincrement()) @db.UnsignedBigInt
+  id_ficha_subida      Decimal                     @unique(map: "uq_fichas_id_ficha_subida") @db.Decimal(20, 0)
+  nombre_ficha         String                      @db.VarChar(200)
+  nombre_slug          String?                     @unique(map: "uq_fichas_nombre_slug") @db.VarChar(220)
+  vencimiento          DateTime?                   @db.Date
+  fecha_redaccion      DateTime?                   @db.Date
+  fecha_subida_web     DateTime?                   @db.Date
+  trabajador_id        Int?                        @db.UnsignedSmallInt
+  trabajador_subida_id Int?                        @db.UnsignedSmallInt
+  ambito_nivel         fichas_ambito_nivel
+  ambito_ccaa_id       Int?                        @db.UnsignedSmallInt
+  ambito_provincia_id  Int?                        @db.UnsignedSmallInt
+  ambito_municipal     String?                     @db.VarChar(150)
+  tramite_tipo         fichas_tramite_tipo?
+  complejidad          fichas_complejidad?
+  complejidad_peso     Int?                        @db.UnsignedTinyInt
+  enlace_base_id       Int                         @default(1) @db.UnsignedTinyInt
+  enlace_seg_override  String?                     @db.VarChar(120)
+  frase_publicitaria   String?                     @db.VarChar(300)
+  texto_divulgacion    String?                     @db.Text
+  existe_frase         Boolean?
+  destaque_principal   fichas_destaque_principal?
+  destaque_secundario  fichas_destaque_secundario?
+  created_at           DateTime                    @default(now()) @db.Timestamp(0)
+  updated_at           DateTime                    @default(now()) @db.Timestamp(0)
+  ficha_portal         ficha_portal[]
+  ficha_tematica       ficha_tematica[]
+  ccaa                 ccaa?                       @relation(fields: [ambito_ccaa_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_fichas_ccaa")
+  provincias           provincias?                 @relation(fields: [ambito_provincia_id], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_fichas_provincia")
+
+  @@index([ambito_nivel], map: "ix_fichas_ambito_nivel")
+  @@index([ambito_ccaa_id], map: "ix_fichas_ccaa")
+  @@index([complejidad], map: "ix_fichas_complejidad")
+  @@index([complejidad_peso], map: "ix_fichas_complejidad_peso")
+  @@index([enlace_base_id], map: "ix_fichas_enlace_base")
+  @@index([fecha_redaccion], map: "ix_fichas_fecha_redaccion")
+  @@index([fecha_subida_web], map: "ix_fichas_fecha_subida_web")
+  @@index([ambito_provincia_id], map: "ix_fichas_provincia")
+  @@index([trabajador_id], map: "ix_fichas_trabajador")
+  @@index([trabajador_subida_id], map: "ix_fichas_trabajador_subida")
+  @@index([tramite_tipo], map: "ix_fichas_tramite_tipo")
+  @@index([vencimiento], map: "ix_fichas_vencimiento")
+  @@fulltext([frase_publicitaria], map: "ft_fichas_frase")
+  @@fulltext([nombre_ficha], map: "ft_fichas_nombre")
+  @@fulltext([texto_divulgacion], map: "ft_fichas_texto")
+}
+
+model portales {
+  id           Int            @id @default(autoincrement()) @db.UnsignedSmallInt
+  slug         String         @unique(map: "uq_portales_slug") @db.VarChar(32)
+  nombre       String         @db.VarChar(64)
+  ficha_portal ficha_portal[]
+}
+
+model provincias {
+  id         Int      @id @default(autoincrement()) @db.UnsignedSmallInt
+  ccaa_id    Int      @db.UnsignedSmallInt
+  nombre     String   @unique(map: "uq_prov_nombre") @db.VarChar(100)
+  codigo_ine String?  @unique(map: "uq_prov_ine") @db.VarChar(4)
+  fichas     fichas[]
+  ccaa       ccaa     @relation(fields: [ccaa_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_prov_ccaa")
+
+  @@index([ccaa_id], map: "ix_prov_ccaa")
+}
+
+model tematicas {
+  id             Int              @id @default(autoincrement()) @db.UnsignedSmallInt
+  slug           String           @unique(map: "uq_tema_slug") @db.VarChar(64)
+  nombre         String           @unique(map: "uq_tema_nombre") @db.VarChar(128)
+  ficha_tematica ficha_tematica[]
+}
+
+model trabajadores {
+  id     Int     @id @default(autoincrement()) @db.UnsignedSmallInt
+  slug   String  @unique(map: "uq_trab_slug") @db.VarChar(64)
+  nombre String  @db.VarChar(120)
+  activo Boolean @default(true)
+
+  @@index([activo], map: "ix_trab_activo")
+}
+
+enum fichas_ambito_nivel {
+  UE
+  ESTADO
+  CCAA
+  PROVINCIA
+}
+
+enum fichas_tramite_tipo {
+  no
+  si
+  directo
+}
+
+enum fichas_complejidad {
+  baja
+  media
+  alta
+}
+
+enum fichas_destaque_principal {
+  novedad
+  destacable
+}
+
+enum fichas_destaque_secundario {
+  novedad
+  destacable
+}
