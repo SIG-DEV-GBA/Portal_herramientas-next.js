@@ -1,20 +1,15 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  BarChart,
-  Bar,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  Cell,
-  ReferenceLine,
+  BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend,
+  ResponsiveContainer, Cell, ReferenceLine,
 } from "recharts";
 import ChartCard from "../cards/ChartCard";
 import { Filters } from "@/lib/stats/types";
+import { apiJSON } from "@/lib/stats/api";
 import { pickFichasFilters } from "@/lib/stats/utils";
+
+type RowAgg = { portal: string; total: number; pct?: number };
 
 // Paleta y color estable por nombre (hash)
 const PALETTE = [
@@ -29,69 +24,68 @@ const colorFromString = (s: string) => {
   return PALETTE[idx];
 };
 
-type Row = { portal: string; total: number; pct?: number };
-
 export default function PortalesPorMesChart({ filters }: { filters: Filters }) {
-  const [data, setData] = useState<Row[]>([]);
+  const [data, setData] = useState<RowAgg[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // anio + filtros arrastrables (si tu endpoint los soporta)
-  const f = useMemo(
-    () => ({ anio: filters.anio, ...pickFichasFilters(filters) }),
-    [filters]
-  );
+  // Parámetros que afectan a la consulta
+  const q = useMemo(() => {
+    const base: any = {
+      anio: filters.anio ?? "",
+      mes: filters.mes ?? "",
+      created_desde: filters.created_desde ?? "",
+      created_hasta: filters.created_hasta ?? "",
+      ...pickFichasFilters(filters),
+    };
+    // limpia vacíos para no ensuciar la URL
+    Object.keys(base).forEach((k) => (base[k] === "" || base[k] == null) && delete base[k]);
+    return base;
+  }, [filters]);
 
   useEffect(() => {
     let cancel = false;
     setLoading(true);
 
-    fetch(`/api/stats/portales-por-mes?anio=${filters.anio ?? ""}`, { cache: "no-store" })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((json) => {
+    // Pedimos las filas mensuales por portal y agregamos en cliente
+    apiJSON<any[]>("/api/stats/portales-por-mes", q, { cache: "no-store" })
+      .then((rows) => {
         if (cancel) return;
 
-        // Esperado: { totales: { portal: total, ... }, total_global }
-        const totales = json?.totales ?? {};
-        const totalGlobal = Number(json?.total_global ?? 0);
+        // Esperado: [{ month:"YYYY-MM", portal_id, portal_slug, portal_nombre, total }, ...]
+        const map = new Map<string, number>();
+        for (const r of rows ?? []) {
+          const name = String(r.portal_nombre ?? r.portal_slug ?? "—");
+          const t = Number(r.total ?? 0);
+          map.set(name, (map.get(name) ?? 0) + t);
+        }
 
-        let rows: Row[] = Object.entries(totales).map(([portal, total]) => {
-          const t = Number(total ?? 0);
-          return {
-            portal,
-            total: t,
-            pct: totalGlobal > 0 ? +( (t / totalGlobal) * 100 ).toFixed(1) : 0,
-          };
-        });
+        const totalGlobal = Array.from(map.values()).reduce((s, n) => s + n, 0);
+        let out: RowAgg[] = Array.from(map.entries()).map(([portal, total]) => ({
+          portal,
+          total,
+          pct: totalGlobal > 0 ? +((total / totalGlobal) * 100).toFixed(1) : 0,
+        }));
 
         // Orden descendente por total
-        rows.sort((a, b) => b.total - a.total);
-
-        setData(Array.isArray(rows) ? rows : []);
+        out.sort((a, b) => b.total - a.total);
+        setData(out);
       })
       .catch((e) => {
         console.error("PortalesPorMesChart:", e);
         setData([]);
       })
-      .finally(() => {
-        if (!cancel) setLoading(false);
-      });
+      .finally(() => !cancel && setLoading(false));
 
-    return () => {
-      cancel = true;
-    };
-  }, [f, filters.anio]);
+    return () => { cancel = true; };
+  }, [q]);
 
-  // Media para ReferenceLine
-  const avg =
-    data.length > 0 ? Math.round(data.reduce((acc, r) => acc + r.total, 0) / data.length) : 0;
+  const avg = data.length > 0
+    ? Math.round(data.reduce((acc, r) => acc + r.total, 0) / data.length)
+    : 0;
 
-  // Tooltip custom
   const renderTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
-    const d: Row = payload[0].payload;
+    const d: RowAgg = payload[0].payload;
     return (
       <div
         style={{
@@ -105,43 +99,34 @@ export default function PortalesPorMesChart({ filters }: { filters: Filters }) {
         }}
       >
         <div style={{ fontWeight: 700, marginBottom: 6 }}>{label}</div>
-        <div style={{ fontSize: 12, opacity: 0.9 }}>
-          Total: <strong>{d.total}</strong>
-        </div>
+        <div style={{ fontSize: 12, opacity: 0.9 }}>Total: <strong>{d.total}</strong></div>
         <div style={{ fontSize: 12, marginTop: 4, opacity: 0.9 }}>
           Participación: <strong>{d.pct}%</strong>
         </div>
         {avg > 0 && (
           <div style={{ fontSize: 12, marginTop: 4, opacity: 0.8 }}>
-            Media anual: <strong>{avg}</strong>
+            Media: <strong>{avg}</strong>
           </div>
         )}
       </div>
     );
   };
 
+  // Hint: año/mes o rango
+  const hint =
+    filters.created_desde || filters.created_hasta
+      ? `${filters.created_desde || ""} → ${filters.created_hasta || ""}`
+      : `Año ${filters.anio || "—"}${filters.mes ? ` · Mes ${filters.mes}` : ""}`;
+
   return (
-    <ChartCard
-      title="Total de fichas por portal (año)"
-      loading={loading}
-      hint={`Año ${filters.anio || "—"}`}
-    >
+    <ChartCard title="Total de fichas por portal" loading={loading} hint={hint}>
       <ResponsiveContainer width="100%" height={320}>
         <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey="portal"
-            interval={0}
-            angle={-25}
-            textAnchor="end"
-            height={60}
-            tick={{ fontSize: 12 }}
-          />
+          <XAxis dataKey="portal" interval={0} angle={-25} textAnchor="end" height={60} tick={{ fontSize: 12 }} />
           <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
           <Tooltip content={renderTooltip} />
           <Legend />
-
-          {/* Línea de media anual */}
           {avg > 0 && (
             <ReferenceLine
               y={avg}
@@ -151,8 +136,6 @@ export default function PortalesPorMesChart({ filters }: { filters: Filters }) {
               label={{ value: "Media", position: "right", fill: "#94a3b8", fontSize: 12 }}
             />
           )}
-
-          {/* Barras con color estable por portal */}
           <Bar dataKey="total" name="Total" radius={[8, 8, 0, 0]}>
             {data.map((entry) => (
               <Cell key={entry.portal} fill={colorFromString(entry.portal)} />

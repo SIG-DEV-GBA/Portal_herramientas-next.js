@@ -13,40 +13,32 @@ import {
   Cell,
 } from "recharts";
 import ChartCard from "../cards/ChartCard";
-import { Filters, ResAmbitosPorPortal } from "@/lib/stats/types";
+import { Filters } from "@/lib/stats/types";
 import { apiJSON } from "@/lib/stats/api";
 import { pickFichasFilters } from "@/lib/stats/utils";
 
 type Row = {
   portal: string;
   total: number;
-  // los siguientes campos son para el tooltip desglosado
-  estado: number;
-  ccaa: number;
-  provincia: number;
-  municipal: number;
+  // para tooltip
+  estado: number;     // suma de ESTADO + UE
+  ccaa: number;       // CCAA
+  provincia: number;  // PROVINCIA
+  municipal: number;  // (no existe en enum; queda en 0 por compat)
 };
 
 const COLORS = [
-  "#2563eb", // indigo-600
-  "#14b8a6", // teal-500
-  "#f59e0b", // amber-500
-  "#ef4444", // red-500
-  "#8b5cf6", // violet-500
-  "#22c55e", // green-500
-  "#06b6d4", // cyan-500
-  "#eab308", // yellow-500
-  "#f97316", // orange-500
-  "#a855f7", // purple-500
+  "#2563eb", "#14b8a6", "#f59e0b", "#ef4444", "#8b5cf6",
+  "#22c55e", "#06b6d4", "#eab308", "#f97316", "#a855f7",
 ];
 
 export default function AmbitosPorPortalChart({ filters }: { filters: Filters }) {
   const [data, setData] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // mes + anio + filtros de /api/fichas (ambito, ccaa_id, etc.)
+  // mes + anio + filtros comunes de /api/fichas
   const f = useMemo(
-    () => ({ mes: filters.mes, anio: filters.anio, ...pickFichasFilters(filters) }),
+    () => ({ anio: filters.anio, mes: filters.mes, ...pickFichasFilters(filters) }),
     [filters]
   );
 
@@ -54,30 +46,45 @@ export default function AmbitosPorPortalChart({ filters }: { filters: Filters })
     let cancel = false;
     setLoading(true);
 
-    apiJSON<ResAmbitosPorPortal>("/api/stats/ambitos-por-portal", f, { cache: "no-store" })
-      .then((res) => {
+    // ✅ Endpoint correcto
+    apiJSON<any[]>("/api/stats/ambitos-por-portal", f, { cache: "no-store" })
+      .then((rows) => {
         if (cancel) return;
-        const map = res?.por_portal ?? {};
 
-        const rows: Row[] = Object.entries(map).map(([portal, vals]: any) => {
-          const estado = Number(vals?.estado ?? 0);
-          const ccaa = Number(vals?.ccaa ?? 0);
-          const provincia = Number(vals?.provincia ?? 0);
-          const municipal = Number(vals?.municipal ?? 0);
-          return {
-            portal,
-            estado,
-            ccaa,
-            provincia,
-            municipal,
-            total: estado + ccaa + provincia + municipal,
-          };
-        });
+        // rows esperadas: [{ portal_id, portal_nombre, ambito, total }, ...]
+        // agrupamos por portal y mapeamos ámbitos al tooltip
+        const byPortal = new Map<string, Row>();
 
-        // Orden opcional: de mayor a menor total (más legible)
-        rows.sort((a, b) => b.total - a.total);
+        for (const r of rows ?? []) {
+          const portal = r.portal_nombre ?? "—";
+          const ambito = String(r.ambito ?? "").toUpperCase();
+          const cnt = Number(r.total ?? 0);
 
-        setData(rows);
+          if (!byPortal.has(portal)) {
+            byPortal.set(portal, {
+              portal,
+              estado: 0,
+              ccaa: 0,
+              provincia: 0,
+              municipal: 0,
+              total: 0,
+            });
+          }
+          const acc = byPortal.get(portal)!;
+
+          // agrupación: ESTADO + UE => estado
+          if (ambito === "ESTADO" || ambito === "UE") acc.estado += cnt;
+          else if (ambito === "CCAA") acc.ccaa += cnt;
+          else if (ambito === "PROVINCIA") acc.provincia += cnt;
+          // si algún día aparece "MUNICIPAL", aquí sumas acc.municipal += cnt;
+
+          acc.total = acc.estado + acc.ccaa + acc.provincia + acc.municipal;
+        }
+
+        const out = Array.from(byPortal.values());
+        // ordenar por total desc (más legible)
+        out.sort((a, b) => b.total - a.total);
+        setData(out);
       })
       .catch((e) => {
         console.error("AmbitosPorPortalChart:", e);
@@ -112,7 +119,7 @@ export default function AmbitosPorPortalChart({ filters }: { filters: Filters })
           Total: <strong>{d.total}</strong>
         </div>
         <div style={{ fontSize: 12, lineHeight: 1.6 }}>
-          <div>Estado/EU: <strong>{d.estado}</strong></div>
+          <div>Estado/UE: <strong>{d.estado}</strong></div>
           <div>CCAA: <strong>{d.ccaa}</strong></div>
           <div>Provincia: <strong>{d.provincia}</strong></div>
           <div>Municipal: <strong>{d.municipal}</strong></div>

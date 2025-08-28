@@ -1,43 +1,99 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { Prisma } from "@prisma/client";   // ✅
-import { FichaUpdate } from "@/lib/validations/fichas";
 import { serialize } from "@/lib/serialize";
-import { slugify } from "@/lib/slug";
+import { requirePermission } from "@/lib/api-guard";
 
-export const runtime = "nodejs";          // ✅
+export const runtime = "nodejs";
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string }}) {
-  const id = BigInt(params.id);
-  const body = await req.json();
-  const parsed = FichaUpdate.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ errors: parsed.error.flatten() }, { status: 400 });
-  const d = parsed.data;
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const { error } = await requirePermission(_req, "fichas", "read");
+  if (error) return error;
 
-  const updates: any = {
-    ...(d.id_ficha_subida && { id_ficha_subida: new Prisma.Decimal(d.id_ficha_subida) }), // ✅
-    ...(d.nombre_ficha && { nombre_ficha: d.nombre_ficha }),
-    ...(d.nombre_ficha && !d.nombre_slug && { nombre_slug: slugify(d.nombre_ficha) }),
-    ...(d.nombre_slug !== undefined && { nombre_slug: d.nombre_slug }),
-    ...(d.vencimiento !== undefined && { vencimiento: d.vencimiento ? new Date(d.vencimiento) : null }),
-    ...(d.fecha_redaccion !== undefined && { fecha_redaccion: d.fecha_redaccion ? new Date(d.fecha_redaccion) : null }),
-    ...(d.fecha_subida_web !== undefined && { fecha_subida_web: d.fecha_subida_web ? new Date(d.fecha_subida_web) : null }),
-    ...(d.trabajador_id !== undefined && { trabajador_id: d.trabajador_id }),
-    ...(d.trabajador_subida_id !== undefined && { trabajador_subida_id: d.trabajador_subida_id }),
-    ...(d.ambito_nivel !== undefined && { ambito_nivel: d.ambito_nivel }),
-    ...(d.ambito_ccaa_id !== undefined && { ambito_ccaa_id: d.ambito_ccaa_id }),
-    ...(d.ambito_provincia_id !== undefined && { ambito_provincia_id: d.ambito_provincia_id }),
-    ...(d.ambito_municipal !== undefined && { ambito_municipal: d.ambito_municipal }),
-    ...(d.tramite_tipo !== undefined && { tramite_tipo: d.tramite_tipo }),
-    ...(d.complejidad !== undefined && { complejidad: d.complejidad }),
-    ...(d.enlace_base_id !== undefined && { enlace_base_id: d.enlace_base_id }),
-    ...(d.enlace_seg_override !== undefined && { enlace_seg_override: d.enlace_seg_override }),
-    ...(d.frase_publicitaria !== undefined && { frase_publicitaria: d.frase_publicitaria }),
-    ...(d.texto_divulgacion !== undefined && { texto_divulgacion: d.texto_divulgacion }),
-    ...(d.destaque_principal !== undefined && { destaque_principal: d.destaque_principal }),
-    ...(d.destaque_secundario !== undefined && { destaque_secundario: d.destaque_secundario }),
-  };
+  const id = Number(params.id);
+  if (!Number.isFinite(id)) {
+    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  }
 
-  await prisma.fichas.update({ where: { id }, data: updates });
-  return NextResponse.json({ ok: true });
+  const ficha = await prisma.fichas.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      id_ficha_subida: true,
+      nombre_ficha: true,
+      nombre_slug: true,
+      vencimiento: true,
+      fecha_redaccion: true,
+      fecha_subida_web: true,
+      trabajador_id: true,
+      trabajador_subida_id: true,
+      ambito_nivel: true,
+      ambito_ccaa_id: true,
+      ambito_provincia_id: true,
+      ambito_municipal: true,
+      tramite_tipo: true,
+      complejidad: true,
+      complejidad_peso: true,
+      enlace_base_id: true,
+      enlace_seg_override: true,
+      frase_publicitaria: true,
+      texto_divulgacion: true,
+      existe_frase: true,
+      destaque_principal: true,
+      destaque_secundario: true,
+      created_at: true,
+      updated_at: true,
+      // relaciones con select mínimo
+      ficha_portal: {
+        select: {
+          portal_id: true,
+          portales: { select: { id: true, nombre: true } },
+        },
+      },
+      ficha_tematica: {
+        select: {
+          tematica_id: true,
+          orden: true,
+          tematicas: { select: { id: true, nombre: true } },
+        },
+      },
+    },
+  });
+
+  if (!ficha) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  return NextResponse.json(serialize(ficha));
+}
+
+// (Opcional) Esqueleto PUT con select mínimo
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const { error } = await requirePermission(req, "fichas", "update");
+  if (error) return error;
+
+  const id = Number(params.id);
+  if (!Number.isFinite(id)) {
+    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  }
+
+  const data = await req.json();
+
+  // TODO: validar con Zod y construir "data" solo de campos presentes.
+  // Evita sobrescribir a null si el campo no viene en el payload.
+
+  const updated = await prisma.fichas.update({
+    where: { id },
+    data: {
+      // ... campos validados
+    },
+    select: { id: true, updated_at: true },
+  });
+
+  return NextResponse.json(serialize(updated));
 }

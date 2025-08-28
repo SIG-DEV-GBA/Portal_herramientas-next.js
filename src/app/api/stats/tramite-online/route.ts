@@ -1,36 +1,89 @@
-import { NextResponse } from "next/server";
-import { fetchFichasFromSelf } from "@/lib/fetch-internal";
-import { getOnline, getPortalPrincipal } from "@/lib/stats-mappers";
+// src/app/api/stats/tramite-online/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { requirePermission } from "@/lib/api-guard";
 
-export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-export async function GET(req: Request) {
-  try {
-    const { items } = await fetchFichasFromSelf(req, "page=1&pageSize=10000");
+export async function GET(req: NextRequest) {
+  const { error } = await requirePermission(req, "fichas", "read");
+  if (error) return error;
 
-    const init = () => ({ directo: 0, si: 0, no: 0, total: 0 });
-    const out: Record<string, ReturnType<typeof init>> = {
-      mayores: init(), discapacidad: init(), familia: init(), mujer: init(), salud: init(),
-    };
+  const sp = req.nextUrl.searchParams;
 
-    for (const row of items as any[]) {
-      const p = getPortalPrincipal(row);
-      const o = getOnline(row);
-      if (!p || !o) continue;
-      (out[p] as any)[o] += 1;
-      out[p].total += 1;
-    }
-
-    const global = Object.values(out).reduce(
-      (acc, v) => ({ directo: acc.directo + v.directo, si: acc.si + v.si, no: acc.no + v.no, total: acc.total + v.total }),
-      { directo: 0, si: 0, no: 0, total: 0 }
-    );
-
-    return NextResponse.json({ por_portal: out, total: global });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: "stats/tramite-online failed", detail: String(e?.message || e) },
-      { status: 500 }
-    );
+  // --- filtros comunes
+  const where: any = {};
+  const q = sp.get("q")?.trim();
+  if (q) {
+    where.OR = [
+      { nombre_ficha: { contains: q } },
+      { frase_publicitaria: { contains: q } },
+      { texto_divulgacion: { contains: q } },
+    ];
   }
+
+  const ambito = sp.get("ambito");
+  if (ambito) where.ambito_nivel = ambito;
+
+  const ccaa_id = sp.get("ccaa_id");
+  if (ccaa_id) where.ambito_ccaa_id = Number(ccaa_id);
+
+  const provincia_id = sp.get("provincia_id");
+  if (provincia_id) where.ambito_provincia_id = Number(provincia_id);
+
+  const trabajador_id = sp.get("trabajador_id");
+  if (trabajador_id) where.trabajador_id = Number(trabajador_id);
+
+  const trabajador_subida_id = sp.get("trabajador_subida_id");
+  if (trabajador_subida_id) where.trabajador_subida_id = Number(trabajador_subida_id);
+
+  // --- periodo: anio/mes ó rango libre created_desde/hasta
+  const anio = Number(sp.get("anio"));
+  const mes = Number(sp.get("mes"));
+  const created_desde = sp.get("created_desde");
+  const created_hasta = sp.get("created_hasta");
+
+  if (Number.isFinite(anio) && anio > 0) {
+    const from = new Date(Date.UTC(anio, mes && mes >= 1 && mes <= 12 ? mes - 1 : 0, 1, 0, 0, 0));
+    const to = new Date(
+      Date.UTC(
+        mes && mes >= 1 && mes <= 12 ? anio : anio + 1,
+        mes && mes >= 1 && mes <= 12 ? mes : 0,
+        mes && mes >= 1 && mes <= 12 ? 1 : 1,
+        0, 0, 0
+      ),
+    );
+    if (!where.created_at) where.created_at = {};
+    where.created_at.gte = from;
+    where.created_at.lt = to;
+  }
+
+  if (created_desde || created_hasta) {
+    if (!where.created_at) where.created_at = {};
+    if (created_desde) where.created_at.gte = new Date(created_desde + "T00:00:00Z");
+    if (created_hasta) where.created_at.lte = new Date(created_hasta + "T23:59:59Z");
+  }
+
+  // --- groupBy tramite_tipo
+  // enum en BD: 'no' | 'si' | 'directo'
+  const rows = await prisma.fichas.groupBy({
+    by: ["tramite_tipo"],
+    _count: { _all: true },
+    where,
+  });
+
+  const countBy: Record<"directo" | "si" | "no", number> = { directo: 0, si: 0, no: 0 };
+  for (const r of rows) {
+    const k = (r.tramite_tipo ?? "") as "directo" | "si" | "no";
+    if (k === "directo" || k === "si" || k === "no") {
+      countBy[k] = r._count._all;
+    }
+  }
+  const total = countBy.directo + countBy.si + countBy.no;
+
+  // La respuesta sigue tu tipo ResTramiteOnline (solo usamos total en el front)
+  return NextResponse.json({
+    por_portal: {}, // reservado por si luego lo necesitas
+    total: { ...countBy, total },
+  });
 }

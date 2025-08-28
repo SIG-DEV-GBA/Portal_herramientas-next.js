@@ -12,8 +12,14 @@ import AmbitosPorPortalChart from "@/components/charts/AmbitosPorPortalChart";
 import TramiteOnlineChart from "@/components//charts/TramiteOnlineChart";
 import FichasTable from "@/components/stats/table/FichasTable";
 
-// Tipos compartidos
-import { Filters } from "@/lib/stats/types";
+// Tipos y utils
+import type { Filters } from "@/lib/stats/types";
+import {
+  asAmbito,
+  asTramite,
+  asComplejidad,
+  monthName,
+} from "@/lib/stats/utils";
 
 /* =============================================================
    Hook: estado de filtros sincronizado con la URL
@@ -24,12 +30,14 @@ function useQueryState() {
 
   const [filters, setFilters] = useState<Filters>(() => ({
     q: sp.get("q") ?? "",
-    ambito: sp.get("ambito") ?? "",
+    ambito: asAmbito(sp.get("ambito")),
     ccaa_id: sp.get("ccaa_id") ?? "",
     provincia_id: sp.get("provincia_id") ?? "",
-    tramite_tipo: sp.get("tramite_tipo") ?? "",
+    tramite_tipo: asTramite(sp.get("tramite_tipo")),
+    complejidad: asComplejidad(sp.get("complejidad")),
     trabajador_id: sp.get("trabajador_id") ?? "",
-    anio: sp.get("anio") ?? "2025",
+    trabajador_subida_id: sp.get("trabajador_subida_id") ?? "",
+    anio: sp.get("anio") ?? String(new Date().getFullYear()),
     mes: sp.get("mes") ?? "",
     created_desde: sp.get("created_desde") ?? "",
     created_hasta: sp.get("created_hasta") ?? "",
@@ -40,10 +48,13 @@ function useQueryState() {
   useEffect(() => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => {
-      if (v !== undefined && v !== null && String(v).length > 0) params.set(k, String(v));
+      if (v !== undefined && v !== null && String(v).length > 0) {
+        params.set(k, String(v));
+      }
     });
     const nextQS = params.toString();
-    const pathname = typeof window !== "undefined" ? window.location.pathname : "/dashboard/fichas";
+    const pathname =
+      typeof window !== "undefined" ? window.location.pathname : "/dashboard/fichas";
     if (sp.toString() === nextQS) return;
     router.replace(`${pathname}?${nextQS}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -53,7 +64,22 @@ function useQueryState() {
     setFilters((f) => ({ ...f, ...patch, page: patch.page ?? f.page }));
 
   const reset = () =>
-    setFilters({ anio: "2025", take: "20", page: "1" });
+    setFilters({
+      q: "",
+      ambito: "",
+      ccaa_id: "",
+      provincia_id: "",
+      tramite_tipo: "",
+      complejidad: "",
+      trabajador_id: "",
+      trabajador_subida_id: "",
+      anio: String(new Date().getFullYear()),
+      mes: "",
+      created_desde: "",
+      created_hasta: "",
+      take: "20",
+      page: "1",
+    });
 
   return { filters, set, reset } as const;
 }
@@ -69,8 +95,12 @@ export default function FichasClient() {
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">📊 Estadísticas de fichas</h1>
-          <p className="text-sm text-gray-500">Dashboard con filtros unificados para gráficas y tabla.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+            📊 Estadísticas de fichas
+          </h1>
+          <p className="text-sm text-gray-500">
+            Dashboard con filtros unificados para gráficas y tabla.
+          </p>
         </div>
       </div>
 
@@ -80,8 +110,11 @@ export default function FichasClient() {
       {/* Tarjetas pequeñas */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard title="Año activo" value={filters.anio || "—"} hint="Puedes cambiarlo en filtros" />
-        <StatCard title="Mes seleccionado" value={filters.mes || "Todos"} hint="Afecta a ámbitos por portal" />
-        <StatCard title="Rango de fechas" value={`${filters.created_desde || ""} → ${filters.created_hasta || ""}`} />
+        <StatCard title="Mes seleccionado" value={monthName(filters.mes) || "Todos"} hint="Afecta a ámbitos por portal" />
+        <StatCard
+          title="Rango de fechas"
+          value={`${filters.created_desde || ""} → ${filters.created_hasta || ""}`}
+        />
       </div>
 
       {/* Gráficas */}

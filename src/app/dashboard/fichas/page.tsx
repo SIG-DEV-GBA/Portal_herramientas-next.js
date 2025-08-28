@@ -1,6 +1,6 @@
 // src/app/dashboard/fichas/page.tsx
 import TopBarFichas from "@/components/TopBarFichas";
-import FichasClient from "./_client"; // o tu _client.tsx
+import FichasClient from "./FichasClient"; // o tu _client.tsx
 
 export const dynamic = "force-dynamic";
 
