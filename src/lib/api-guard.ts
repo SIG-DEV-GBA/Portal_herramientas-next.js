@@ -11,13 +11,13 @@ export async function requireAuth(req: NextRequest) {
 
 export async function requirePermission(
   req: NextRequest,
-  resource: "fichas" | "lookups",
+  resource: "fichas" | "lookups" | "portales" | "tematicas" | "trabajadores",
   action: "read" | "create" | "update" | "delete"
 ) {
   const { session, error } = await requireAuth(req);
   if (error) return { error };
-  // de momento /auth/me no da rol; por defecto usa "editor"
-  const role = (session as any).role as Role ?? "editor";
+  // de momento /auth/me no da rol; por defecto usa "admin" para operaciones de gestión
+  const role = (session as any).role as Role ?? "admin";
   if (!can(role, resource, action)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }

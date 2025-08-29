@@ -74,29 +74,6 @@ export default function FiltersSidebar({
         </button>
       </div>
 
-      {/* Búsqueda */}
-      <label className="block text-xs text-gray-500 mb-1">Búsqueda</label>
-      <input
-        className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        placeholder="Nombre, frase o texto…"
-        value={value.q || ""}
-        onChange={(e) => onChange({ q: e.target.value, page: "1" })}
-      />
-
-      {/* Ámbito */}
-      <label className="block text-xs text-gray-500 mb-1">Ámbito</label>
-      <select
-        className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        value={value.ambito || ""}
-        onChange={(e) => onChange({ ambito: asAmbito(e.target.value), page: "1" })}  
-      >
-        <option value="">Todos</option>
-        <option value="UE">UE</option>
-        <option value="ESTADO">Estado</option>
-        <option value="CCAA">CCAA</option>
-        <option value="PROVINCIA">Provincia</option>
-      </select>
-
       {/* CCAA */}
       <label className="block text-xs text-gray-500 mb-1">CCAA</label>
       <select
@@ -164,35 +141,6 @@ export default function FiltersSidebar({
         {trabajadores.map((t) => (
           <option key={t.id} value={t.id}>
             {t.label}
-          </option>
-        ))}
-      </select>
-
-      {/* Año */}
-      <label className="block text-xs text-gray-500 mb-1">Año</label>
-      <select
-        className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        value={value.anio || ""}
-        onChange={(e) => onChange({ anio: e.target.value })}
-      >
-        {useMemo(() => {
-          const y = new Date().getFullYear();
-          return Array.from({ length: 6 }, (_, i) => y - i).map((n) => (
-            <option key={n} value={n}>{n}</option>
-          ));
-        }, [])}
-      </select>
-
-      {/* Mes */}
-      <label className="block text-xs text-gray-500 mb-1">Mes</label>
-      <select
-        className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        value={value.mes || ""}
-        onChange={(e) => onChange({ mes: e.target.value })}
-      >
-        {MONTHS.map((m) => (
-          <option key={String(m.id)} value={String(m.id)}>
-            {m.label}
           </option>
         ))}
       </select>

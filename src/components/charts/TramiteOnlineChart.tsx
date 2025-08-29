@@ -10,9 +10,15 @@ import { pickFichasFilters } from "@/lib/stats/utils";
 type Row = { tipo: "Directo" | "Sí" | "No"; total: number };
 
 const COLOR_BY_TIPO: Record<Row["tipo"], string> = {
-  Directo: "#0ea5e9",
-  "Sí": "#22c55e",
-  "No": "#ef4444",
+  Directo: "#3b82f6",
+  "Sí": "#10b981",
+  "No": "#f59e0b",
+};
+
+const GRADIENT_COLORS = {
+  Directo: ["#3b82f6", "#1d4ed8"],
+  "Sí": ["#10b981", "#059669"],
+  "No": ["#f59e0b", "#d97706"],
 };
 const ORDER: Row["tipo"][] = ["Directo", "Sí", "No"];
 
@@ -115,46 +121,175 @@ export default function TramiteOnlineChart({ filters }: { filters: Filters }) {
       ? `${filters.created_desde || ""} → ${filters.created_hasta || ""}`
       : `Año ${filters.anio || "—"}${filters.mes ? ` · Mes ${filters.mes}` : ""}`;
 
+  // Generar título dinámico
+  const getDynamicTitle = () => {
+    let baseTitle = "Trámite online";
+    
+    if (filters.tramite_tipo) {
+      const tramiteLabels = { no: "Sin trámite", si: "Con trámite", directo: "Trámite directo" };
+      baseTitle = tramiteLabels[filters.tramite_tipo as keyof typeof tramiteLabels] || "Trámite online";
+    }
+    
+    if (filters.ambito) {
+      const ambitoLabels = { UE: "🇪🇺 UE", ESTADO: "🏛️ Estado", CCAA: "🌐 CCAA", PROVINCIA: "📍 Provincia" };
+      const ambitoLabel = ambitoLabels[filters.ambito as keyof typeof ambitoLabels] || filters.ambito;
+      baseTitle = `Trámites ${ambitoLabel}`;
+    }
+    
+    if (filters.tematica_id) {
+      baseTitle = `Trámites por temática específica`;
+    }
+    
+    if (filters.complejidad) {
+      baseTitle = `Trámites de complejidad ${filters.complejidad}`;
+    }
+    
+    return baseTitle;
+  };
+
   return (
-    <ChartCard title="Distribución de trámite online" loading={loading} hint={hint}>
+    <ChartCard title={getDynamicTitle()} loading={loading} hint={hint}>
       {total === 0 ? (
         <Empty />
       ) : (
-        <div className="relative">
-          <div className="relative h-[320px]">
-            <CenterLabel />
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data}
-                  dataKey="total"
-                  nameKey="tipo"
-                  innerRadius={70}
-                  outerRadius={110}
-                  cy={180}
-                  startAngle={90}
-                  endAngle={-270}
-                  paddingAngle={2}
-                  label={renderSliceLabel}
-                  labelLine={false}
-                  isAnimationActive
-                >
-                  {data.map((d) => (
-                    <Cell key={d.tipo} fill={COLOR_BY_TIPO[d.tipo]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(v: any, _n: any, e: any) => [`${v} (${p(v as number)}%)`, e?.payload?.tipo]}
-                  contentStyle={{ background: "rgba(17,24,39,0.9)", border: "none", borderRadius: 12, color: "#fff" }}
-                  itemStyle={{ color: "#fff" }}
-                  labelFormatter={() => "Distribución"}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+        <div className="bg-gradient-to-br from-slate-50/50 to-white rounded-xl p-6">
+          <div className="flex h-[380px] gap-6">
+            {/* Área del gráfico */}
+            <div className="flex-1 relative">
+              {/* Métrica central */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="text-center z-10">
+                  <div className="text-xs font-medium text-slate-500 mb-1">
+                    TRÁMITE ONLINE
+                  </div>
+                  <div className="text-4xl font-bold text-green-600 mb-1">{pSi}%</div>
+                  <div className="text-sm text-slate-600">
+                    {total.toLocaleString()} fichas
+                  </div>
+                </div>
+              </div>
+
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <defs>
+                    {data.map((d) => {
+                      const [color1, color2] = GRADIENT_COLORS[d.tipo];
+                      return (
+                        <linearGradient key={d.tipo} id={`gradient-${d.tipo}`} x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor={color1} stopOpacity={0.9} />
+                          <stop offset="100%" stopColor={color2} stopOpacity={1} />
+                        </linearGradient>
+                      );
+                    })}
+                  </defs>
+                  <Pie
+                    data={data}
+                    dataKey="total"
+                    nameKey="tipo"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={85}
+                    outerRadius={140}
+                    paddingAngle={4}
+                    cornerRadius={6}
+                    isAnimationActive
+                    animationDuration={800}
+                  >
+                    {data.map((d) => (
+                      <Cell 
+                        key={d.tipo} 
+                        fill={`url(#gradient-${d.tipo})`}
+                        stroke="#ffffff"
+                        strokeWidth={3}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(v: any, _n: any, e: any) => [
+                      `${Number(v).toLocaleString()} fichas (${p(v as number)}%)`,
+                      e?.payload?.tipo
+                    ]}
+                    contentStyle={{ 
+                      background: "rgba(0,0,0,0.9)", 
+                      border: "none", 
+                      borderRadius: "12px", 
+                      color: "#fff",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      boxShadow: "0 20px 25px -5px rgba(0,0,0,0.2)"
+                    }}
+                    itemStyle={{ color: "#fff" }}
+                    labelFormatter={() => "Distribución"}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Panel lateral con información y scroll */}
+            <div className="w-80 bg-white/60 backdrop-blur-sm border-l border-slate-200/60 pl-6 flex flex-col overflow-hidden">
+              {/* Estadísticas rápidas - fijas */}
+              <div className="flex-shrink-0 mb-4">
+                <h3 className="text-sm font-semibold text-slate-900 mb-3">Resumen</h3>
+                <div className="space-y-3">
+                  <div className="text-center p-3 bg-green-50/50 rounded-lg border border-green-200/50">
+                    <div className="text-2xl font-bold text-green-600">{pSi}%</div>
+                    <div className="text-xs text-slate-600">Admite trámite online</div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="text-center p-2 bg-slate-50 rounded">
+                      <div className="font-semibold text-slate-900">
+                        {data.find(d => d.tipo === "Directo")?.total.toLocaleString() || 0}
+                      </div>
+                      <div className="text-slate-500">Directo</div>
+                    </div>
+                    <div className="text-center p-2 bg-slate-50 rounded">
+                      <div className="font-semibold text-slate-900">
+                        {data.find(d => d.tipo === "No")?.total.toLocaleString() || 0}
+                      </div>
+                      <div className="text-slate-500">No online</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Leyenda detallada - con scroll */}
+              <div className="flex-1 min-h-0">
+                <h3 className="text-sm font-semibold text-slate-900 mb-3 flex-shrink-0">Tipos de trámite</h3>
+                <div className="h-full overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
+                  <div className="space-y-3">
+                    {data.map((d) => (
+                      <div key={d.tipo} className="p-3 rounded-lg hover:bg-white/80 transition-colors">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div 
+                            className="w-4 h-4 rounded-full flex-shrink-0 shadow-sm" 
+                            style={{ background: COLOR_BY_TIPO[d.tipo] }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-slate-900 truncate">{d.tipo}</span>
+                              <span className="text-sm font-semibold text-slate-700 flex-shrink-0 ml-2">
+                                {p(d.total)}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="ml-7">
+                          <div className="text-xs text-slate-600 leading-relaxed">
+                            {LEGEND_TEXT[d.tipo]}
+                          </div>
+                          <div className="text-xs font-medium text-slate-800 mt-1">
+                            {d.total.toLocaleString()} fichas
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
-      <Legend />
     </ChartCard>
   );
 }

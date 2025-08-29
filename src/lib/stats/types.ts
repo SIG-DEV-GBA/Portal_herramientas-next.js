@@ -12,6 +12,7 @@ export type Ficha = {
   ambito_nivel: Exclude<Ambito, "">;
   ambito_ccaa_id: number | null;
   ambito_provincia_id: number | null;
+  ambito_municipal?: string | null;
 
   created_at: string;               // ISO
   updated_at: string;               // ISO
@@ -19,17 +20,27 @@ export type Ficha = {
   // --- opcionales útiles en tablas/vistas (no rompen nada si no vienen):
   nombre_slug?: string | null;
   vencimiento?: string | null;      // date ISO
+  fecha_redaccion?: string | null;  // date ISO
+  fecha_subida_web?: string | null; // date ISO
   tramite_tipo?: Exclude<TramiteTipo, ""> | null;
   complejidad?: Exclude<Complejidad, ""> | null;
   existe_frase?: boolean | null;
   enlace_base_id?: number | null;
+  enlace_seg_override?: string | null;
+  frase_publicitaria?: string | null;
   trabajador_id?: number | null;
   trabajador_subida_id?: number | null;
+  destaque_principal?: string | null;
+  destaque_secundario?: string | null;
 
   // Relaciones opcionales (cuando usas withRelations=true)
-  trabajadores?: { id: number; nombre: string } | null;
-  trabajadores_trabajador_subida_idTotrabajadores?: { id: number; nombre: string } | null; // si mapeas relación del uploader
+  trabajadores?: { id: number; nombre: string; slug: string } | null;
+  trabajadores_trabajador_subida_idTotrabajadores?: { id: number; nombre: string; slug: string } | null;
+  ccaa?: { id: number; nombre: string; codigo_ine: string | null } | null;
+  provincias?: { id: number; nombre: string; codigo_ine: string | null } | null;
+  enlaces_base?: { id: number; nombre: string; base_url: string } | null;
   ficha_portal?: { portales: { id: number; slug: string; nombre: string } }[];
+  ficha_tematica?: { tematicas: { id: number; slug: string; nombre: string } }[];
 };
 
 /** Respuesta genérica de listados */
@@ -45,6 +56,8 @@ export type Filters = {
 
   tramite_tipo?: TramiteTipo;
   complejidad?: Complejidad;
+  
+  tematica_id?: string;
 
   trabajador_id?: string;
   trabajador_subida_id?: string;

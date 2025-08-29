@@ -39,7 +39,26 @@ export default function FichasPorMesChart({ filters }: { filters: Filters }) {
     let cancel = false;
     setLoading(true);
 
-    fetch(`/api/stats/fichas-por-mes?anio=${filters.anio ?? ""}`, { cache: "no-store" })
+    // Construir query string con todos los filtros relevantes
+    const params = new URLSearchParams();
+    if (filters.anio) params.set("anio", filters.anio);
+    if (filters.mes) params.set("mes", filters.mes);
+    if (filters.q) params.set("q", filters.q);
+    if (filters.ambito) params.set("ambito", filters.ambito);
+    if (filters.tramite_tipo) params.set("tramite_tipo", filters.tramite_tipo);
+    if (filters.complejidad) params.set("complejidad", filters.complejidad);
+    if (filters.ccaa_id) params.set("ccaa_id", filters.ccaa_id);
+    if (filters.provincia_id) params.set("provincia_id", filters.provincia_id);
+    if (filters.trabajador_id) params.set("trabajador_id", filters.trabajador_id);
+    if (filters.trabajador_subida_id) params.set("trabajador_subida_id", filters.trabajador_subida_id);
+    if (filters.tematica_id) params.set("tematica_id", filters.tematica_id);
+    if (filters.created_desde) params.set("created_desde", filters.created_desde);
+    if (filters.created_hasta) params.set("created_hasta", filters.created_hasta);
+
+    const queryString = params.toString();
+    const url = queryString ? `/api/stats/fichas-por-mes?${queryString}` : `/api/stats/fichas-por-mes?anio=${filters.anio ?? ""}`;
+
+    fetch(url, { cache: "no-store" })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
@@ -68,12 +87,10 @@ export default function FichasPorMesChart({ filters }: { filters: Filters }) {
       .finally(() => { if (!cancel) setLoading(false); });
 
     return () => { cancel = true; };
-  }, [filters.anio]);
+  }, [filters]);
 
-  const avg =
-    data.length > 0
-      ? Math.round(data.reduce((acc, r) => acc + r.total, 0) / data.length)
-      : 0;
+  const totalAnual = data.reduce((acc, r) => acc + r.total, 0);
+  const avg = data.length > 0 ? Math.round(totalAnual / data.length) : 0;
 
   const renderTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
@@ -135,44 +152,176 @@ export default function FichasPorMesChart({ filters }: { filters: Filters }) {
     </div>
   );
 
+  // Generar título dinámico basado en filtros activos
+  const getDynamicTitle = () => {
+    const parts: string[] = [];
+    
+    // Título base
+    let baseTitle = "Fichas por mes";
+    
+    // Agregar contexto específico
+    if (filters.ambito) {
+      const ambitoLabels = { UE: "🇪🇺 UE", ESTADO: "🏛️ Estado", CCAA: "🌐 CCAA", PROVINCIA: "📍 Provincia" };
+      baseTitle = `Fichas ${ambitoLabels[filters.ambito as keyof typeof ambitoLabels] || filters.ambito} por mes`;
+    }
+    
+    if (filters.tematica_id) {
+      baseTitle = `Fichas de temática específica por mes`;
+    }
+    
+    if (filters.trabajador_id) {
+      baseTitle = `Fichas por trabajador por mes`;
+    }
+    
+    if (filters.tramite_tipo) {
+      const tramiteLabels = { no: "sin trámite", si: "con trámite", directo: "directo" };
+      const tramiteLabel = tramiteLabels[filters.tramite_tipo as keyof typeof tramiteLabels] || filters.tramite_tipo;
+      baseTitle = `Fichas ${tramiteLabel} por mes`;
+    }
+    
+    if (filters.complejidad) {
+      baseTitle = `Fichas de complejidad ${filters.complejidad} por mes`;
+    }
+    
+    return baseTitle;
+  };
+
+  // Generar descripción de contexto
+  const getFilterSummary = () => {
+    const parts: string[] = [];
+    
+    if (filters.anio) parts.push(`${filters.anio}`);
+    if (filters.mes) parts.push(`Mes ${filters.mes}`);
+    if (filters.q) parts.push(`Búsqueda: "${filters.q.substring(0, 15)}${filters.q.length > 15 ? '...' : ''}"`);
+    
+    return parts.length > 0 ? parts.join(" • ") : "Todos los datos";
+  };
+
   return (
-    <ChartCard title="Fichas por mes" loading={loading} hint={`Año ${filters.anio || "—"}`}>
-      <ResponsiveContainer width="100%" height={320}>
-        <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-          <defs>
-            <linearGradient id="fillArea" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.32} />
-              <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.05} />
-            </linearGradient>
-          </defs>
+    <ChartCard 
+      title={getDynamicTitle()} 
+      loading={loading} 
+      hint={getFilterSummary()}
+    >
+      <div className="bg-gradient-to-br from-blue-50/50 to-white rounded-xl p-6 h-[380px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={data} margin={{ top: 20, right: 20, left: 20, bottom: 40 }}>
+            <defs>
+              <linearGradient id="fillArea" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.4} />
+                <stop offset="50%" stopColor="#3b82f6" stopOpacity={0.2} />
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.05} />
+              </linearGradient>
+              <filter id="shadow">
+                <feDropShadow dx="0" dy="2" stdDeviation="4" floodOpacity="0.1"/>
+              </filter>
+            </defs>
 
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey="mes"
-            tickFormatter={(v: string) => MONTHS.find((m) => m.key === v)?.label ?? v}
-            interval={0}
-            height={36}
-            tick={{ fontSize: 12 }}
-          />
-          {/* aire arriba para los labels */}
-          <YAxis allowDecimals={false} tick={{ fontSize: 12 }} domain={[0, (max: number) => Math.max(3, Math.ceil(max * 1.2))]} />
-          <Tooltip content={renderTooltip} />
-          {/* leyenda única */}
-          <Legend content={<LegendSingle />} />
+            <CartesianGrid 
+              strokeDasharray="2 4" 
+              stroke="#e2e8f0" 
+              strokeOpacity={0.6}
+              vertical={false}
+            />
+            <XAxis
+              dataKey="mes"
+              tickFormatter={(v: string) => MONTHS.find((m) => m.key === v)?.label ?? v}
+              interval={0}
+              height={40}
+              tick={{ fontSize: 12, fill: '#64748b', fontWeight: 500 }}
+              axisLine={false}
+              tickLine={false}
+              dy={10}
+            />
+            <YAxis 
+              allowDecimals={false} 
+              tick={{ fontSize: 12, fill: '#64748b', fontWeight: 500 }}
+              domain={[0, (max: number) => Math.max(3, Math.ceil(max * 1.15))]}
+              axisLine={false}
+              tickLine={false}
+              dx={-10}
+            />
+            <Tooltip content={renderTooltip} />
 
-          {/* Área visual (no crea item en leyenda porque usamos Legend custom) */}
-          <Area type="monotone" dataKey="total" stroke="none" fill="url(#fillArea)" />
+            {/* Área con gradiente mejorado */}
+            <Area 
+              type="monotone" 
+              dataKey="total" 
+              stroke="none" 
+              fill="url(#fillArea)" 
+              fillOpacity={1}
+            />
 
-          {/* Línea principal con labels */}
-          <Line type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 5 }}>
-            <LabelList dataKey="total" content={pointLabel} />
-          </Line>
+            {/* Línea principal moderna */}
+            <Line 
+              type="monotone" 
+              dataKey="total" 
+              stroke="#3b82f6" 
+              strokeWidth={3}
+              dot={{ 
+                r: 4, 
+                fill: '#ffffff', 
+                stroke: '#3b82f6', 
+                strokeWidth: 3,
+                filter: 'url(#shadow)'
+              }} 
+              activeDot={{ 
+                r: 6, 
+                fill: '#3b82f6',
+                stroke: '#ffffff',
+                strokeWidth: 3,
+                filter: 'url(#shadow)'
+              }}
+            >
+              <LabelList 
+                dataKey="total" 
+                content={pointLabel} 
+                style={{ fontWeight: 600, fontSize: '12px' }}
+              />
+            </Line>
 
-          {avg > 0 && (
-            <ReferenceLine y={avg} stroke="#94a3b8" strokeDasharray="4 4" ifOverflow="extendDomain" />
-          )}
-        </ComposedChart>
-      </ResponsiveContainer>
+            {/* Línea de referencia moderna */}
+            {avg > 0 && (
+              <ReferenceLine 
+                y={avg} 
+                stroke="#64748b" 
+                strokeDasharray="4 6" 
+                strokeOpacity={0.8}
+                ifOverflow="extendDomain"
+              />
+            )}
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      
+      {/* Panel de estadísticas moderno */}
+      <div className="mt-6 bg-gradient-to-r from-slate-50 to-blue-50/30 rounded-xl p-4">
+        <div className="grid grid-cols-3 gap-6 text-center">
+          <div>
+            <div className="text-sm font-medium text-slate-600 mb-1">TOTAL AÑO</div>
+            <div className="text-2xl font-bold text-slate-900 tabular-nums">
+              {totalAnual.toLocaleString()}
+            </div>
+            <div className="text-xs text-slate-500">{filters.anio || "—"}</div>
+          </div>
+          <div>
+            <div className="text-sm font-medium text-slate-600 mb-1">PROMEDIO MES</div>
+            <div className="text-2xl font-bold text-blue-600 tabular-nums">
+              {avg.toLocaleString()}
+            </div>
+            <div className="text-xs text-slate-500">Fichas/mes</div>
+          </div>
+          <div>
+            <div className="text-sm font-medium text-slate-600 mb-1">MEJOR MES</div>
+            <div className="text-2xl font-bold text-green-600 tabular-nums">
+              {Math.max(...data.map(d => d.total)).toLocaleString()}
+            </div>
+            <div className="text-xs text-slate-500">
+              {MONTHS.find(m => m.key === data.find(d => d.total === Math.max(...data.map(x => x.total)))?.mes)?.label || "—"}
+            </div>
+          </div>
+        </div>
+      </div>
     </ChartCard>
   );
 }

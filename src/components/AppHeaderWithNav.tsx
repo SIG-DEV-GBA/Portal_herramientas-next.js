@@ -1,10 +1,23 @@
 import Image from "next/image";
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE } from "@/lib/env";
 import { pyFetch } from "@/lib/http";
-import { LogOut } from "lucide-react";
+import { LogOut, ArrowLeft, Grid3X3 } from "lucide-react";
 
-export default async function AppHeader() {
+type Props = {
+  showBackButton?: boolean;
+  backHref?: string;
+  backLabel?: string;
+  title?: string;
+};
+
+export default async function AppHeaderWithNav({ 
+  showBackButton = false, 
+  backHref = "/dashboard", 
+  backLabel = "Portal de herramientas",
+  title
+}: Props) {
   const cookieStore = await cookies();
   const sid = cookieStore.get(AUTH_COOKIE)?.value;
 
@@ -13,6 +26,18 @@ export default async function AppHeader() {
       <header className="sticky top-0 z-50 w-full border-b border-gray-200/60 bg-white/95 backdrop-blur-md shadow-sm">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <Brand />
+          {showBackButton && (
+            <Link
+              href={backHref}
+              className="inline-flex items-center gap-2 rounded-xl border-2 border-[#D17C22]/20 px-4 py-2.5 text-sm font-medium
+                         bg-gradient-to-r from-white to-[#D17C22]/5 text-[#D17C22] shadow-sm transition-all duration-200
+                         hover:border-[#D17C22] hover:bg-gradient-to-r hover:from-[#D17C22] hover:to-[#8E8D29] hover:text-white 
+                         hover:shadow-md hover:shadow-[#D17C22]/25"
+            >
+              <ArrowLeft size={16} />
+              <span>{backLabel}</span>
+            </Link>
+          )}
         </div>
       </header>
     );
@@ -25,7 +50,35 @@ export default async function AppHeader() {
     <header className="sticky top-0 z-50 w-full bg-gradient-to-r from-white via-white to-amber-50/30 backdrop-blur-md border-b border-gradient">
       <div className="border-b border-[#D17C22]/20 bg-gradient-to-r from-white to-[#D17C22]/5">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
-          <Brand />
+          <div className="flex items-center gap-6">
+            <Brand />
+            {showBackButton && (
+              <div className="flex items-center gap-4">
+                <div className="w-px h-8 bg-[#D17C22]/20"></div>
+                <Link
+                  href={backHref}
+                  className="group inline-flex items-center gap-3 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium
+                             bg-white text-slate-700 shadow-sm transition-all duration-200
+                             hover:bg-slate-50 hover:border-slate-400 hover:text-slate-800 hover:shadow-md
+                             focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2"
+                >
+                  <ArrowLeft size={16} className="transition-all duration-200 group-hover:-translate-x-0.5" />
+                  <Grid3X3 size={16} className="transition-all duration-200 group-hover:rotate-3" />
+                  <span>{backLabel}</span>
+                </Link>
+                {title && (
+                  <>
+                    <div className="w-px h-8 bg-[#D17C22]/20"></div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-gradient-to-r from-[#8E8D29] to-[#D17C22]"></div>
+                      <h1 className="text-lg font-semibold text-slate-700">{title}</h1>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          
           {me?.ok && (
             <div className="flex items-center gap-6">
               {/* User info con diseño moderno */}
@@ -71,12 +124,6 @@ function Brand() {
           className="object-contain relative z-10 filter group-hover:brightness-110 transition-all duration-300"
           priority
         />
-      </div>
-      
-      {/* Badge/indicator opcional */}
-      <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#8E8D29]/10 to-[#D17C22]/10 border border-[#D17C22]/20">
-        <div className="w-2 h-2 rounded-full bg-gradient-to-r from-[#8E8D29] to-[#D17C22] animate-pulse"></div>
-        <span className="text-xs font-medium text-slate-600">Sistema activo</span>
       </div>
     </div>
   );

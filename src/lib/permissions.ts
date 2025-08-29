@@ -11,6 +11,24 @@ export const matrix = {
   lookups: {
     read: ["admin", "editor", "viewer"],
   },
+  portales: {
+    read:   ["admin", "editor", "viewer"],
+    create: ["admin", "editor"],
+    update: ["admin", "editor"],
+    delete: ["admin"],
+  },
+  tematicas: {
+    read:   ["admin", "editor", "viewer"],
+    create: ["admin", "editor"],
+    update: ["admin", "editor"],
+    delete: ["admin"],
+  },
+  trabajadores: {
+    read:   ["admin", "editor", "viewer"],
+    create: ["admin", "editor"],
+    update: ["admin", "editor"],
+    delete: ["admin"],
+  },
 } as const;
 
 type Matrix = typeof matrix;
