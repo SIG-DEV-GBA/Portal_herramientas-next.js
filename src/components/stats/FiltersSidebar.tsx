@@ -104,38 +104,12 @@ export default function FiltersSidebar({
         ))}
       </select>
 
-      {/* Trámite */}
-      <label className="block text-xs text-gray-500 mb-1">Tipo de trámite</label>
+      {/* Trabajador de subida */}
+      <label className="block text-xs text-gray-500 mb-1">Trabajador/a que subió</label>
       <select
         className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        value={value.tramite_tipo || ""}
-        onChange={(e) => onChange({ tramite_tipo: asTramite(e.target.value), page: "1" })}  
-      >
-        <option value="">Todos</option>
-        <option value="si">Sí (online)</option>
-        <option value="no">No</option>
-        <option value="directo">Directo</option>
-      </select>
-
-      {/* (Opcional) Complejidad */}
-      <label className="block text-xs text-gray-500 mb-1">Complejidad</label>
-      <select
-        className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        value={value.complejidad || ""}
-        onChange={(e) => onChange({ complejidad: asComplejidad(e.target.value), page: "1" })}  
-      >
-        <option value="">Todas</option>
-        <option value="baja">Baja</option>
-        <option value="media">Media</option>
-        <option value="alta">Alta</option>
-      </select>
-
-      {/* Trabajador (nombre) */}
-      <label className="block text-xs text-gray-500 mb-1">Trabajador/a</label>
-      <select
-        className="w-full mb-3 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        value={value.trabajador_id || ""}
-        onChange={(e) => onChange({ trabajador_id: e.target.value, page: "1" })}
+        value={value.trabajador_subida_id || ""}
+        onChange={(e) => onChange({ trabajador_subida_id: e.target.value, page: "1" })}
       >
         <option value="">Todos</option>
         {trabajadores.map((t) => (

@@ -107,11 +107,11 @@ export default function TematicasDistribucionDonut({ filters }: { filters: Filte
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="text-center z-10">
                   <div className="text-xs font-medium text-slate-500 mb-1">
-                    {filters.mes ? "TOTAL MES" : "TOTAL AÑO"}
+                    TEMÁTICAS
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 mb-1">{total.toLocaleString()}</div>
+                  <div className="text-3xl font-bold text-slate-900 mb-1">{data.length}</div>
                   <div className="text-sm text-slate-600">
-                    {data.length} temática{data.length !== 1 ? 's' : ''}
+                    {filters.mes ? "activas este mes" : "activas este año"}
                   </div>
                 </div>
               </div>
@@ -209,7 +209,7 @@ export default function TematicasDistribucionDonut({ filters }: { filters: Filte
                           {d.name}
                         </div>
                         <div className="text-xs text-slate-500">
-                          {d.value.toLocaleString()} • {pct(d.value)}%
+                          {d.value.toLocaleString()} fichas • {pct(d.value)}%
                         </div>
                       </div>
                     </div>

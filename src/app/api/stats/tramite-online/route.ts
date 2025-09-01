@@ -29,7 +29,13 @@ export async function GET(req: NextRequest) {
   if (ccaa_id) where.ambito_ccaa_id = Number(ccaa_id);
 
   const provincia_id = sp.get("provincia_id");
-  if (provincia_id) where.ambito_provincia_id = Number(provincia_id);
+  if (provincia_id) {
+    const { getProvinciaInclusiveFilter } = await import('@/lib/provincia-filter');
+    const provinciaFilter = await getProvinciaInclusiveFilter(Number(provincia_id));
+    if (provinciaFilter) {
+      where.OR = provinciaFilter.OR;
+    }
+  }
 
   const trabajador_id = sp.get("trabajador_id");
   if (trabajador_id) where.trabajador_id = Number(trabajador_id);

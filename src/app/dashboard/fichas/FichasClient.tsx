@@ -2,10 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { SlidersHorizontal, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 
-// KPI
-import StatCard from "@/components/cards/StatCard";
 
 // Gráficas
 import FichasPorMesChart from "@/components/charts/FichasPorMesChart";
@@ -20,13 +18,13 @@ import ChartsTabs, { type Tab } from "@/components/charts/ChartsTabs";
 // Tabla
 import FichasTable from "@/components/stats/table/FichasTable";
 
-// Drawer de filtros completos
-import FilterDrawer from "@/components/stats/FilterDrawer";
+// Filtros unificados
+import UnifiedFilters from "@/components/filters/UnifiedFilters";
 
 // Componentes de gestión
-import PortalesManager from "@/components/management/PortalesManager";
-import TematicasManager from "@/components/management/TematicasManager";
-import TrabajadoresManager from "@/components/management/TrabajadoresManager";
+import { PortalesManager } from "@/components/management/PortalesManager";
+import { TematicasManager } from "@/components/management/TematicasManager";
+import { TrabajadoresManager } from "@/components/management/TrabajadoresManager";
 
 // Tipos / Utils
 import type { Filters } from "@/lib/stats/types";
@@ -44,6 +42,7 @@ function useQueryState() {
     ambito: asAmbito(sp.get("ambito")),
     ccaa_id: sp.get("ccaa_id") ?? "",
     provincia_id: sp.get("provincia_id") ?? "",
+    provincia_principal: sp.get("provincia_principal") ?? "",
     tramite_tipo: asTramite(sp.get("tramite_tipo")),
     complejidad: asComplejidad(sp.get("complejidad")),
     tematica_id: sp.get("tematica_id") ?? "",
@@ -111,17 +110,44 @@ function useQueryState() {
 // -----------------------------------------------
 export default function FichasClient() {
   const { filters, set, reset } = useQueryState();
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [trabajadores, setTrabajadores] = useState<{id: number; nombre: string}[]>([]);
+  const [provincias, setProvincias] = useState<{id: number; nombre: string}[]>([]);
+  const [, setCcaa] = useState<{id: number; nombre: string}[]>([]);
+  const [, setProvinciasRestrictivas] = useState<{id: number; nombre: string}[]>([]);
   const [activeMainTab, setActiveMainTab] = useState<'analisis' | 'datos' | 'portales' | 'tematicas' | 'trabajadores'>('analisis');
 
-  // Cargar trabajadores
+  // Cargar datos de lookups
   useEffect(() => {
-    fetch("/api/lookups/trabajadores?solo_activos=true")
-      .then((r) => r.json())
-      .then((rows) => setTrabajadores(rows || []))
-      .catch(() => setTrabajadores([]));
+    Promise.all([
+      fetch("/api/lookups/trabajadores?solo_activos=true").then(r => r.json()),
+      fetch("/api/lookups/provincias").then(r => r.json()),
+      fetch("/api/lookups/ccaa").then(r => r.json())
+    ])
+    .then(([trabajadoresData, provinciasData, ccaaData]) => {
+      setTrabajadores(trabajadoresData || []);
+      setProvincias(provinciasData || []);
+      setCcaa(ccaaData || []);
+      setProvinciasRestrictivas(provinciasData || []);
+    })
+    .catch(() => {
+      setTrabajadores([]);
+      setProvincias([]);
+      setCcaa([]);
+      setProvinciasRestrictivas([]);
+    });
   }, []);
+
+  // Actualizar provincias restrictivas cuando cambia CCAA
+  useEffect(() => {
+    if (filters.ccaa_id) {
+      fetch(`/api/lookups/provincias?ccaa_id=${filters.ccaa_id}`)
+        .then(r => r.json())
+        .then(data => setProvinciasRestrictivas(data || []))
+        .catch(() => setProvinciasRestrictivas([]));
+    } else {
+      setProvinciasRestrictivas(provincias);
+    }
+  }, [filters.ccaa_id, provincias]);
 
   const mesNombre = useMemo(() => (filters.mes ? monthName(filters.mes) : "Todos"), [filters.mes]);
 
@@ -137,172 +163,12 @@ export default function FichasClient() {
   // Filtros rápidos (siempre visibles)
   const quick = (
     <div className="bg-gradient-to-r from-white to-slate-50/50 rounded-2xl shadow-lg border border-slate-200/60 backdrop-blur-sm">
-      {/* Header de filtros */}
-      <div className="px-6 py-4 border-b border-slate-200/60">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-gradient-to-r from-[#D17C22] to-[#8E8D29]"></div>
-            <h3 className="text-lg font-semibold text-slate-800">Filtros de búsqueda</h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
-              {Object.values(filters).filter(v => v && v !== '' && v !== '1').length} activos
-            </span>
-          </div>
-        </div>
-      </div>
-      
-      {/* Filtros principales */}
-      <div className="p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Búsqueda */}
-          <div className="lg:col-span-2">
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Búsqueda general
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              <input
-                value={filters.q || ""}
-                onChange={(e) => set({ q: e.target.value, page: "1" })}
-                placeholder="Buscar por nombre, frase publicitaria o contenido..."
-                className="w-full h-12 pl-10 pr-4 rounded-xl border border-slate-300 bg-white/80 backdrop-blur-sm
-                         text-slate-900 placeholder-slate-500 text-sm
-                         focus:ring-2 focus:ring-[#D17C22]/20 focus:border-[#D17C22] focus:bg-white
-                         hover:border-slate-400 transition-all duration-200
-                         shadow-sm focus:shadow-md"
-              />
-              {filters.q && (
-                <button
-                  onClick={() => set({ q: "", page: "1" })}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        {/* Filtros rápidos */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {/* Año */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Año</label>
-            <select
-              value={filters.anio || ""}
-              onChange={(e) => set({ anio: e.target.value, page: "1" })}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white/90 px-3 text-sm text-slate-900
-                       focus:ring-2 focus:ring-[#D17C22]/20 focus:border-[#D17C22]
-                       hover:border-slate-400 transition-all duration-200
-                       appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0iIzY0NzQ4QiIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K')] bg-no-repeat bg-[length:12px] bg-[right_12px_center]"
-            >
-              {Array.from({ length: 6 }, (_, i) => String(new Date().getFullYear() - i)).map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </div>
-          
-          {/* Mes */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Mes</label>
-            <select
-              value={filters.mes || ""}
-              onChange={(e) => set({ mes: e.target.value, page: "1" })}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white/90 px-3 text-sm text-slate-900
-                       focus:ring-2 focus:ring-[#D17C22]/20 focus:border-[#D17C22]
-                       hover:border-slate-400 transition-all duration-200
-                       appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0iIzY0NzQ4QiIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K')] bg-no-repeat bg-[length:12px] bg-[right_12px_center]"
-            >
-              <option value="">Todos los meses</option>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={String(m).padStart(2, "0")}>
-                  {monthName(String(m).padStart(2, "0"))}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          {/* Ámbito */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Ámbito</label>
-            <select
-              value={filters.ambito || ""}
-              onChange={(e) => set({ ambito: e.target.value as any, page: "1" })}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white/90 px-3 text-sm text-slate-900
-                       focus:ring-2 focus:ring-[#D17C22]/20 focus:border-[#D17C22]
-                       hover:border-slate-400 transition-all duration-200
-                       appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0iIzY0NzQ4QiIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K')] bg-no-repeat bg-[length:12px] bg-[right_12px_center]"
-            >
-              <option value="">Todos</option>
-              <option value="UE">UE</option>
-              <option value="ESTADO">Estado</option>
-              <option value="CCAA">CCAA</option>
-              <option value="PROVINCIA">Provincia</option>
-            </select>
-          </div>
-          
-          {/* Trabajador */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Trabajador/a</label>
-            <select
-              value={filters.trabajador_id || ""}
-              onChange={(e) => set({ trabajador_id: e.target.value, page: "1" })}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white/90 px-3 text-sm text-slate-900
-                       focus:ring-2 focus:ring-[#D17C22]/20 focus:border-[#D17C22]
-                       hover:border-slate-400 transition-all duration-200
-                       appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0iIzY0NzQ4QiIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K')] bg-no-repeat bg-[length:12px] bg-[right_12px_center]"
-            >
-              <option value="">Todos</option>
-              {trabajadores.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        
-        {/* Botones de acción */}
-        <div className="flex items-center justify-between pt-4 border-t border-slate-200/60">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setDrawerOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 
-                       bg-white text-slate-700 text-sm font-medium
-                       hover:bg-slate-50 hover:border-slate-400 hover:text-slate-800
-                       focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2
-                       transition-all duration-200 shadow-sm hover:shadow-md"
-              type="button"
-            >
-              <SlidersHorizontal size={16} />
-              <span>Filtros avanzados</span>
-            </button>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <button
-              onClick={reset}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300
-                       bg-slate-900 text-white text-sm font-medium
-                       hover:bg-slate-800 hover:border-slate-600
-                       focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
-                       transition-all duration-200 shadow-sm hover:shadow-md"
-              title="Limpiar todos los filtros"
-              type="button"
-            >
-              <RotateCcw size={16} className="transition-transform duration-200 hover:rotate-180" />
-              <span>Limpiar</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Filtros unificados */}
+      <UnifiedFilters 
+        filters={filters}
+        onFilterChange={set}
+        onReset={reset}
+      />
     </div>
   );
 
@@ -387,17 +253,6 @@ export default function FichasClient() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setDrawerOpen(true)}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300
-                             bg-white text-slate-700 text-xs font-medium
-                             hover:bg-slate-50 hover:border-slate-400
-                             focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2
-                             transition-all duration-200 shadow-sm hover:shadow-md"
-                  >
-                    <SlidersHorizontal size={14} />
-                    Más filtros
-                  </button>
-                  <button
                     onClick={reset}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-600
                              bg-slate-900 text-white text-xs font-medium
@@ -444,7 +299,7 @@ export default function FichasClient() {
                 
                 <select
                   value={filters.ambito || ""}
-                  onChange={(e) => set({ ambito: e.target.value as any, page: "1" })}
+                  onChange={(e) => set({ ambito: e.target.value as 'UE' | 'ESTADO' | 'CCAA' | 'PROVINCIA' | '', page: "1" })}
                   className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-xs text-slate-900
                            focus:ring-2 focus:ring-[#D17C22]/20 focus:border-[#D17C22]
                            hover:border-slate-400 transition-all duration-200"
@@ -532,14 +387,6 @@ export default function FichasClient() {
         )}
       </div>
 
-      {/* Drawer con filtros completos */}
-      <FilterDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        value={filters}
-        onChange={set}
-        onReset={reset}
-      />
     </>
   );
 }

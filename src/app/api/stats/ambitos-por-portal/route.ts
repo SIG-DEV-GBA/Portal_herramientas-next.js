@@ -83,7 +83,14 @@ export async function GET(req: NextRequest) {
       params.push(existe_frase ? 1 : 0);
     }
     if (ccaa_id)              { whereParts.push("f.ambito_ccaa_id = ?"); params.push(ccaa_id); }
-    if (provincia_id)         { whereParts.push("f.ambito_provincia_id = ?"); params.push(provincia_id); }
+    if (provincia_id) {
+      const { getProvinciaInclusiveWhere } = await import('@/lib/provincia-filter');
+      const provinciaWhere = await getProvinciaInclusiveWhere(provincia_id);
+      if (provinciaWhere) {
+        whereParts.push(provinciaWhere.condition);
+        params.push(...provinciaWhere.params);
+      }
+    }
     if (trabajador_id)        { whereParts.push("f.trabajador_id = ?"); params.push(trabajador_id); }
     if (trabajador_subida_id) { whereParts.push("f.trabajador_subida_id = ?"); params.push(trabajador_subida_id); }
 

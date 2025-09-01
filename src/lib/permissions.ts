@@ -1,33 +1,39 @@
 // permissions.ts
-export type Role = "admin" | "editor" | "viewer";
+export type Role = "ADMIN" | "EDITOR" | "VIEWER";
 
 export const matrix = {
   fichas: {
-    read:   ["admin", "editor", "viewer"],
-    create: ["admin", "editor"],
-    update: ["admin", "editor"],
-    delete: ["admin"],
+    read:   ["ADMIN", "EDITOR", "VIEWER"],
+    create: ["ADMIN", "EDITOR", "VIEWER"],
+    update: ["ADMIN", "EDITOR", "VIEWER"],
+    delete: ["ADMIN", "EDITOR", "VIEWER"],
   },
   lookups: {
-    read: ["admin", "editor", "viewer"],
+    read: ["ADMIN", "EDITOR", "VIEWER"],
   },
   portales: {
-    read:   ["admin", "editor", "viewer"],
-    create: ["admin", "editor"],
-    update: ["admin", "editor"],
-    delete: ["admin"],
+    read:   ["ADMIN", "EDITOR", "VIEWER"],
+    create: ["ADMIN", "EDITOR"],
+    update: ["ADMIN", "EDITOR"],
+    delete: ["ADMIN", "EDITOR"],
   },
   tematicas: {
-    read:   ["admin", "editor", "viewer"],
-    create: ["admin", "editor"],
-    update: ["admin", "editor"],
-    delete: ["admin"],
+    read:   ["ADMIN", "EDITOR", "VIEWER"],
+    create: ["ADMIN", "EDITOR"],
+    update: ["ADMIN", "EDITOR"],
+    delete: ["ADMIN", "EDITOR"],
   },
   trabajadores: {
-    read:   ["admin", "editor", "viewer"],
-    create: ["admin", "editor"],
-    update: ["admin", "editor"],
-    delete: ["admin"],
+    read:   ["ADMIN", "EDITOR", "VIEWER"],
+    create: ["ADMIN", "EDITOR"],
+    update: ["ADMIN", "EDITOR"],
+    delete: ["ADMIN", "EDITOR"],
+  },
+  users: {
+    read:   ["ADMIN"],
+    create: ["ADMIN"],
+    update: ["ADMIN"],
+    delete: ["ADMIN"],
   },
 } as const;
 

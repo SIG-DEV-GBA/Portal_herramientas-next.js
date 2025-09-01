@@ -1,4 +1,7 @@
+import { prisma } from './db';
+
 type Session = { email: string };
+type SessionWithRole = { email: string; role: 'ADMIN' | 'EDITOR' | 'VIEWER' };
 
 const PY = process.env.PY_BACKEND_URL!;
 const AUTH_COOKIE = process.env.AUTH_COOKIE ?? "sid";
@@ -14,6 +17,37 @@ export async function verifyOpaqueTokenViaMe(token?: string): Promise<Session | 
     if (!res.ok) return null;
     const data = (await res.json()) as { ok?: boolean; email?: string };
     if (!data?.ok || !data?.email) return null;
+    
     return { email: data.email };
   } catch { return null; }
+}
+
+export async function getUserWithRole(email: string): Promise<SessionWithRole> {
+  try {
+    // Obtener el rol del usuario desde la base de datos
+    let userPermission = await prisma.user_permissions.findUnique({
+      where: { email },
+      select: { role: true }
+    });
+    
+    let role: 'ADMIN' | 'EDITOR' | 'VIEWER' = 'VIEWER';
+    
+    if (!userPermission) {
+      // Si el usuario no existe, crear automáticamente con rol VIEWER
+      await prisma.user_permissions.create({
+        data: {
+          email,
+          role: 'VIEWER'
+        }
+      });
+      role = 'VIEWER';
+    } else {
+      role = userPermission.role;
+    }
+    
+    return { email, role };
+  } catch (error) {
+    console.error('Error getting user role:', error);
+    return { email, role: 'VIEWER' };
+  }
 }

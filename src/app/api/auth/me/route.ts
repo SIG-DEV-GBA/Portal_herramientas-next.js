@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { pyFetch } from "@/lib/http";
+import { getUserWithRole } from "@/lib/auth-opaque";
 
 export async function GET() {
   // Construimos el header Cookie con TODAS las cookies actuales
@@ -12,5 +13,22 @@ export async function GET() {
   });
 
   const data = await res.json().catch(() => ({}));
+  
+  // Si la autenticación es exitosa y tenemos email, obtener el rol
+  if (data?.ok && data?.email) {
+    try {
+      const userWithRole = await getUserWithRole(data.email);
+      return NextResponse.json({ 
+        ...data, 
+        email: userWithRole.email,
+        role: userWithRole.role 
+      }, { status: res.status });
+    } catch (error) {
+      console.error("Error getting user role:", error);
+      // Si hay error obteniendo el rol, devolver solo la info básica
+      return NextResponse.json(data, { status: res.status });
+    }
+  }
+
   return NextResponse.json(data, { status: res.status });
 }

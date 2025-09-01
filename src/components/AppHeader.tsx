@@ -1,8 +1,9 @@
 import Image from "next/image";
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE } from "@/lib/env";
 import { pyFetch } from "@/lib/http";
-import { LogOut } from "lucide-react";
+import { LogOut, Grid3X3 } from "lucide-react";
 
 export default async function AppHeader() {
   const cookieStore = await cookies();
@@ -22,37 +23,55 @@ export default async function AppHeader() {
   const me = await res.json().catch(() => null);
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-gradient-to-r from-white via-white to-amber-50/30 backdrop-blur-md border-b border-gradient">
-      <div className="border-b border-[#D17C22]/20 bg-gradient-to-r from-white to-[#D17C22]/5">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
-          <Brand />
-          {me?.ok && (
-            <div className="flex items-center gap-6">
-              {/* User info con diseño moderno */}
-              <div className="hidden md:flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#D17C22] to-[#8E8D29] flex items-center justify-center text-white font-semibold text-sm">
+    <header className="sticky top-0 z-50 w-full backdrop-blur-xl bg-white/95 border-b border-slate-200/60 shadow-sm">
+      <div className="mx-auto flex h-18 max-w-7xl items-center justify-between px-6 py-3">
+        <Brand />
+        {me?.ok && (
+          <div className="flex items-center gap-3">
+            {/* Botón Herramientas */}
+            <Link
+              href="/dashboard"
+              className="group relative inline-flex items-center gap-2.5 px-5 py-2.5 text-sm font-semibold
+                         bg-gradient-to-br from-[#D17C22] to-[#B8641A] text-white rounded-2xl shadow-lg
+                         hover:shadow-xl hover:scale-[1.02] transition-all duration-300 ease-out
+                         before:absolute before:inset-0 before:rounded-2xl before:bg-gradient-to-br 
+                         before:from-white/20 before:to-transparent before:opacity-0 
+                         hover:before:opacity-100 before:transition-opacity before:duration-300"
+            >
+              <Grid3X3 size={18} className="transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
+              <span className="relative z-10">Herramientas</span>
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#E8863A] to-[#C8742A] opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
+            </Link>
+
+            {/* User info con diseño premium */}
+            <div className="hidden md:flex items-center gap-3 px-4 py-2 rounded-2xl bg-slate-50/80 backdrop-blur-sm border border-slate-200/60">
+              <div className="relative">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#D17C22] via-[#C8742A] to-[#8E8D29] flex items-center justify-center text-white font-bold text-sm shadow-md">
                   {me.email?.charAt(0)?.toUpperCase()}
                 </div>
-                <div className="text-right">
-                  <div className="text-sm font-medium text-slate-700">{me.email}</div>
-                </div>
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white shadow-sm" />
               </div>
-              
-              {/* Botón logout moderno */}
-              <form action="/api/auth/logout" method="POST">
-                <button
-                  className="group inline-flex items-center gap-2 rounded-xl border border-red-300 px-4 py-2.5 text-sm font-medium
-                             bg-white text-red-600 shadow-sm transition-all duration-200
-                             hover:bg-red-50 hover:border-red-400 hover:text-red-700 hover:shadow-md
-                             focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-2"
-                >
-                  <span>Cerrar sesión</span>
-                  <LogOut size={16} className="transition-all duration-200 group-hover:translate-x-0.5" />
-                </button>
-              </form>
+              <div className="text-left">
+                <div className="text-sm font-semibold text-slate-800 leading-tight">{me.email}</div>
+                <div className="text-xs text-slate-500">Sesión activa</div>
+              </div>
             </div>
-          )}
-        </div>
+            
+            {/* Botón logout premium */}
+            <form action="/api/auth/logout" method="POST">
+              <button
+                className="group relative inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium
+                           bg-white text-slate-600 rounded-2xl border border-slate-200 shadow-sm
+                           hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 hover:shadow-md
+                           transition-all duration-300 ease-out hover:scale-[1.02]
+                           focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+              >
+                <span className="relative z-10">Salir</span>
+                <LogOut size={16} className="transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-red-500" />
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </header>
   );
@@ -60,23 +79,20 @@ export default async function AppHeader() {
 
 function Brand() {
   return (
-    <div className="flex items-center gap-4">
-      {/* Contenedor del logo con efecto hover */}
-      <div className="group relative h-14 w-36 md:h-16 md:w-[280px] transition-all duration-300 hover:scale-105">
-        <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-[#D17C22]/10 to-[#8E8D29]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+    <div className="flex items-center">
+      {/* Contenedor del logo con efecto moderno */}
+      <div className="group relative h-12 w-32 md:h-14 md:w-[260px] transition-all duration-500 hover:scale-[1.03]">
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#D17C22]/5 via-transparent to-[#8E8D29]/5 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+        <div className="absolute inset-0 rounded-2xl bg-white/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
         <Image
           src="/logo.png"
           alt="Logo entidad"
           fill
-          className="object-contain relative z-10 filter group-hover:brightness-110 transition-all duration-300"
+          className="object-contain relative z-10 filter group-hover:brightness-105 group-hover:contrast-110 transition-all duration-500"
           priority
         />
-      </div>
-      
-      {/* Badge/indicator opcional */}
-      <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#8E8D29]/10 to-[#D17C22]/10 border border-[#D17C22]/20">
-        <div className="w-2 h-2 rounded-full bg-gradient-to-r from-[#8E8D29] to-[#D17C22] animate-pulse"></div>
-        <span className="text-xs font-medium text-slate-600">Sistema activo</span>
+        {/* Efecto de brillo sutil */}
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 transform group-hover:translate-x-full"></div>
       </div>
     </div>
   );

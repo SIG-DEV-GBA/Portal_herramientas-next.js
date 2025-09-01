@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyOpaqueTokenViaMe } from "./auth-opaque";
+import { verifyOpaqueTokenViaMe, getUserWithRole } from "./auth-opaque";
 import { can, Role } from "./permissions";
 
 export async function requireAuth(req: NextRequest) {
@@ -11,15 +11,17 @@ export async function requireAuth(req: NextRequest) {
 
 export async function requirePermission(
   req: NextRequest,
-  resource: "fichas" | "lookups" | "portales" | "tematicas" | "trabajadores",
+  resource: "fichas" | "lookups" | "portales" | "tematicas" | "trabajadores" | "users",
   action: "read" | "create" | "update" | "delete"
 ) {
   const { session, error } = await requireAuth(req);
   if (error) return { error };
-  // de momento /auth/me no da rol; por defecto usa "admin" para operaciones de gestión
-  const role = (session as any).role as Role ?? "admin";
-  if (!can(role, resource, action)) {
+  
+  // Obtener el rol del usuario y crear automáticamente si no existe
+  const sessionWithRole = await getUserWithRole(session.email);
+  
+  if (!can(sessionWithRole.role, resource, action)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
-  return { session: { ...session, role } };
+  return { session: sessionWithRole };
 }

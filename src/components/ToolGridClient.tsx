@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import ToolCard from "./ToolCard";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export type ToolItem = {
   key: string;
@@ -9,21 +10,28 @@ export type ToolItem = {
   description?: string;
   href: string;
   icon: React.ReactNode;
-  tags?: string[]; // usaremos "Fichas"
+  tags?: string[];
   disabled?: boolean;
   badge?: string;
+  adminOnly?: boolean;
 };
 
 export default function ToolGridClient({ items }: { items: ToolItem[] }) {
   const [q, setQ] = useState("");
   const [tag, setTag] = useState<string>("");
+  const { isAdmin } = useCurrentUser();
 
-  // Solo 2 filtros: Todas / Fichas
+  // Solo filtro de Fichas
   const allowedTags = ["Fichas"] as const;
 
   const filtered = useMemo(() => {
     const qn = q.trim().toLowerCase();
     return items.filter(i => {
+      // Filtrar herramientas solo para admin
+      if (i.adminOnly && !isAdmin) {
+        return false;
+      }
+      
       const matchesQ =
         !qn ||
         i.title.toLowerCase().includes(qn) ||
@@ -31,7 +39,7 @@ export default function ToolGridClient({ items }: { items: ToolItem[] }) {
       const matchesTag = !tag || i.tags?.includes(tag);
       return matchesQ && matchesTag;
     });
-  }, [items, q, tag]);
+  }, [items, q, tag, isAdmin]);
 
   return (
     <>

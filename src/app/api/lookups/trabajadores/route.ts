@@ -33,5 +33,9 @@ export async function GET(req: NextRequest) {
     select: { id: true, nombre: true, activo: true },
   });
 
-  return NextResponse.json(trabajadores);
+  return NextResponse.json(trabajadores, {
+    headers: {
+      'Cache-Control': 'public, max-age=180, stale-while-revalidate=60'
+    }
+  });
 }

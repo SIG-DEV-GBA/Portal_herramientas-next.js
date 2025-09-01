@@ -53,6 +53,7 @@ export type Filters = {
   ambito?: Ambito;
   ccaa_id?: string;
   provincia_id?: string;
+  provincia_principal?: string;  // Filtro principal de provincia (inclusivo)
 
   tramite_tipo?: TramiteTipo;
   complejidad?: Complejidad;

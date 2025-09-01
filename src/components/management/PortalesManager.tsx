@@ -1,7 +1,10 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { NotificationModal, ConfirmModal } from '@/components/ui/Modal';
 import { useNotification } from '@/hooks/useNotification';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { FullPageSkeleton } from '@/components/ui/LoadingSkeletons';
+import { useLookupData } from '@/hooks/useApiData';
 
 interface Portal {
   id: number;
@@ -9,31 +12,28 @@ interface Portal {
   nombre: string;
 }
 
-export default function PortalesManager() {
-  const [portales, setPortales] = useState<Portal[]>([]);
-  const [loading, setLoading] = useState(true);
+export function PortalesManager() {
+  const { canAccess, loading: userLoading } = useCurrentUser();
+  const { data: portales = [], error, isLoading, mutate } = useLookupData<Portal[]>('portales', !userLoading && canAccess('portales', 'read'));
   const [editingPortal, setEditingPortal] = useState<Portal | null>(null);
   const [newPortal, setNewPortal] = useState({ nombre: '' });
   const [showAddForm, setShowAddForm] = useState(false);
   const { notification, confirm, showSuccess, showError, showConfirm, closeNotification, closeConfirm } = useNotification();
 
-  useEffect(() => {
-    fetchPortales();
-  }, []);
+  // Mostrar skeleton mientras carga el usuario o los datos
+  if (userLoading || (isLoading && canAccess('portales', 'read'))) {
+    return <FullPageSkeleton />;
+  }
 
-  const fetchPortales = async () => {
-    try {
-      const response = await fetch('/api/lookups/portales');
-      if (response.ok) {
-        const data = await response.json();
-        setPortales(data);
-      }
-    } catch (error) {
-      console.error('Error fetching portales:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Verificar permisos después de cargar
+  if (!canAccess('portales', 'read')) {
+    return (
+      <div className="p-6 text-center">
+        <h2 className="text-xl font-semibold text-gray-800 mb-2">Acceso Denegado</h2>
+        <p className="text-gray-600">No tienes permisos para acceder a la gestión de portales.</p>
+      </div>
+    );
+  }
 
   const handleAdd = async () => {
     try {
@@ -45,7 +45,7 @@ export default function PortalesManager() {
       if (response.ok) {
         setNewPortal({ nombre: '' });
         setShowAddForm(false);
-        fetchPortales();
+        mutate(); // Revalidar cache
         showSuccess('Portal creado', `El portal "${newPortal.nombre}" ha sido creado exitosamente.`);
       } else {
         const errorData = await response.json();
@@ -66,7 +66,7 @@ export default function PortalesManager() {
       });
       if (response.ok) {
         setEditingPortal(null);
-        fetchPortales();
+        mutate(); // Revalidar cache
         showSuccess('Portal actualizado', `El portal "${portal.nombre}" ha sido actualizado exitosamente.`);
       } else {
         const errorData = await response.json();
@@ -86,7 +86,7 @@ export default function PortalesManager() {
         try {
           const response = await fetch(`/api/portales/${id}`, { method: 'DELETE' });
           if (response.ok) {
-            fetchPortales();
+            mutate(); // Revalidar cache
             showSuccess('Portal eliminado', `El portal "${nombre}" ha sido eliminado exitosamente.`);
           } else {
             const errorData = await response.json();
@@ -105,7 +105,7 @@ export default function PortalesManager() {
     );
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="w-6 h-6 border-2 border-slate-300 border-t-[#D17C22] rounded-full animate-spin"></div>
@@ -122,15 +122,17 @@ export default function PortalesManager() {
           <h2 className="text-2xl font-bold text-slate-900">Gestión de Portales</h2>
           <p className="text-slate-600 mt-1">Administra los portales del sistema</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#D17C22] text-white hover:bg-[#B8641A] transition-colors font-medium shadow-sm"
-        >
+        {canAccess('portales', 'create') && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#D17C22] text-white hover:bg-[#B8641A] transition-colors font-medium shadow-sm"
+          >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
           Añadir Portal
-        </button>
+          </button>
+        )}
       </div>
 
       {/* Add Form */}
@@ -214,18 +216,22 @@ export default function PortalesManager() {
                         </>
                       ) : (
                         <>
-                          <button
-                            onClick={() => setEditingPortal(portal)}
-                            className="inline-flex items-center px-3 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(portal.id, portal.nombre)}
-                            className="inline-flex items-center px-3 py-1 rounded text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
-                          >
-                            Eliminar
-                          </button>
+                          {canAccess('portales', 'update') && (
+                            <button
+                              onClick={() => setEditingPortal(portal)}
+                              className="inline-flex items-center px-3 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                            >
+                              Editar
+                            </button>
+                          )}
+                          {canAccess('portales', 'delete') && (
+                            <button
+                              onClick={() => handleDelete(portal.id, portal.nombre)}
+                              className="inline-flex items-center px-3 py-1 rounded text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                            >
+                              Eliminar
+                            </button>
+                          )}
                         </>
                       )}
                     </div>

@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
     const tematica_id = toInt(sp.get("tematica_id"));
     const ccaa_id = toInt(sp.get("ccaa_id"));
     const provincia_id = toInt(sp.get("provincia_id"));
+    const provincia_principal = toInt(sp.get("provincia_principal"));
     const trabajador_id = toInt(sp.get("trabajador_id"));
     const trabajador_subida_id = toInt(sp.get("trabajador_subida_id"));
     const existe_frase = parseBool(sp.get("existe_frase"));
@@ -90,7 +91,15 @@ export async function GET(req: NextRequest) {
     if (tematica_id)          { whereParts.push("f.tematica_id = ?"); params.push(tematica_id); }
     if (typeof existe_frase === "boolean") { whereParts.push("f.existe_frase = ?"); params.push(existe_frase ? 1 : 0); }
     if (ccaa_id)              { whereParts.push("f.ambito_ccaa_id = ?"); params.push(ccaa_id); }
-    if (provincia_id)         { whereParts.push("f.ambito_provincia_id = ?"); params.push(provincia_id); }
+    if (provincia_id) { whereParts.push("f.ambito_provincia_id = ?"); params.push(provincia_id); }
+    if (provincia_principal) {
+      const { getProvinciaInclusiveWhere } = await import('@/lib/provincia-filter');
+      const provinciaWhere = await getProvinciaInclusiveWhere(provincia_principal);
+      if (provinciaWhere) {
+        whereParts.push(provinciaWhere.condition);
+        params.push(...provinciaWhere.params);
+      }
+    }
     if (trabajador_id)        { whereParts.push("f.trabajador_id = ?"); params.push(trabajador_id); }
     if (trabajador_subida_id) { whereParts.push("f.trabajador_subida_id = ?"); params.push(trabajador_subida_id); }
 

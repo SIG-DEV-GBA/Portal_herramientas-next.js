@@ -128,7 +128,18 @@ export async function GET(req: NextRequest) {
   if (ccaa_id) where.ambito_ccaa_id = Number(ccaa_id);
 
   const provincia_id = sp.get("provincia_id");
-  if (provincia_id) where.ambito_provincia_id = Number(provincia_id);
+  if (provincia_id) {
+    where.ambito_provincia_id = Number(provincia_id); // Filtro restrictivo original
+  }
+
+  const provincia_principal = sp.get("provincia_principal");
+  if (provincia_principal) {
+    const { getProvinciaInclusiveFilter } = await import('@/lib/provincia-filter');
+    const provinciaFilter = await getProvinciaInclusiveFilter(Number(provincia_principal));
+    if (provinciaFilter) {
+      where.OR = provinciaFilter.OR;
+    }
+  }
 
   const existe_frase = sp.get("existe_frase");
   if (existe_frase === "true") where.existe_frase = true;

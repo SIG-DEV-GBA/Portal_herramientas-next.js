@@ -57,7 +57,7 @@ export default function FilterDrawer({
                 <Filter size={20} className="text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-slate-800">Filtros avanzados</h3>
+                <h3 className="text-lg font-semibold text-slate-800">Filtros adicionales</h3>
                 <div className="flex items-center gap-2 mt-1">
                   <Sparkles size={14} className="text-[#D17C22]" />
                   <span className="text-sm text-slate-600">

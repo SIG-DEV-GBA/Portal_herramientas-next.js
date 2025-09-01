@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
     const complejidad = sp.get("complejidad");
     const ccaa_id = toInt(sp.get("ccaa_id"));
     const provincia_id = toInt(sp.get("provincia_id"));
+    const provincia_principal = toInt(sp.get("provincia_principal"));
     const trabajador_id = toInt(sp.get("trabajador_id"));
     const trabajador_subida_id = toInt(sp.get("trabajador_subida_id"));
     const existe_frase = parseBool(sp.get("existe_frase"));
@@ -60,6 +61,21 @@ export async function GET(req: NextRequest) {
                               where = Prisma.sql`${where} AND f.existe_frase = ${existe_frase ? 1 : 0}`;
     if (ccaa_id)              where = Prisma.sql`${where} AND f.ambito_ccaa_id = ${ccaa_id}`;
     if (provincia_id)         where = Prisma.sql`${where} AND f.ambito_provincia_id = ${provincia_id}`;
+    if (provincia_principal) {
+      // Filtro inclusivo por provincia
+      const provinciaData = await prisma.provincias.findUnique({
+        where: { id: provincia_principal },
+        select: { ccaa_id: true }
+      });
+      
+      if (provinciaData) {
+        where = Prisma.sql`${where} AND (
+          f.ambito_provincia_id = ${provincia_principal} OR 
+          (f.ambito_nivel = 'CCAA' AND f.ambito_ccaa_id = ${provinciaData.ccaa_id}) OR 
+          f.ambito_nivel = 'ESTADO'
+        )`;
+      }
+    }
     if (trabajador_id)        where = Prisma.sql`${where} AND f.trabajador_id = ${trabajador_id}`;
     if (trabajador_subida_id) where = Prisma.sql`${where} AND f.trabajador_subida_id = ${trabajador_subida_id}`;
 

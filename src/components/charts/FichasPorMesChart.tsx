@@ -49,6 +49,7 @@ export default function FichasPorMesChart({ filters }: { filters: Filters }) {
     if (filters.complejidad) params.set("complejidad", filters.complejidad);
     if (filters.ccaa_id) params.set("ccaa_id", filters.ccaa_id);
     if (filters.provincia_id) params.set("provincia_id", filters.provincia_id);
+    if (filters.provincia_principal) params.set("provincia_principal", filters.provincia_principal);
     if (filters.trabajador_id) params.set("trabajador_id", filters.trabajador_id);
     if (filters.trabajador_subida_id) params.set("trabajador_subida_id", filters.trabajador_subida_id);
     if (filters.tematica_id) params.set("tematica_id", filters.tematica_id);

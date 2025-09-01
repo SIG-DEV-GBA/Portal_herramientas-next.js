@@ -39,6 +39,7 @@ export function pickFichasFilters(f: Filters) {
     "ambito",
     "ccaa_id",
     "provincia_id",
+    "provincia_principal",
     "tramite_tipo",
     "complejidad",
     "trabajador_id",

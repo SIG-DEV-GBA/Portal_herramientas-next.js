@@ -1,7 +1,10 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { NotificationModal, ConfirmModal } from '@/components/ui/Modal';
 import { useNotification } from '@/hooks/useNotification';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { FullPageSkeleton } from '@/components/ui/LoadingSkeletons';
+import { useLookupData } from '@/hooks/useApiData';
 
 interface Trabajador {
   id: number;
@@ -10,33 +13,30 @@ interface Trabajador {
   activo: boolean;
 }
 
-export default function TrabajadoresManager() {
-  const [trabajadores, setTrabajadores] = useState<Trabajador[]>([]);
-  const [loading, setLoading] = useState(true);
+export function TrabajadoresManager() {
+  const { canAccess, loading: userLoading } = useCurrentUser();
+  const { data: trabajadores = [], error, isLoading, mutate } = useLookupData<Trabajador[]>('trabajadores?solo_activos=false', !userLoading && canAccess('trabajadores', 'read'));
   const [editingTrabajador, setEditingTrabajador] = useState<Trabajador | null>(null);
   const [newTrabajador, setNewTrabajador] = useState({ nombre: '', activo: true });
   const [showAddForm, setShowAddForm] = useState(false);
   const [filter, setFilter] = useState<'todos' | 'activos' | 'inactivos'>('todos');
   const { notification, confirm, showSuccess, showError, showConfirm, closeNotification, closeConfirm } = useNotification();
 
-  useEffect(() => {
-    fetchTrabajadores();
-  }, []);
 
-  const fetchTrabajadores = async () => {
-    try {
-      // Obtener TODOS los trabajadores (activos e inactivos)
-      const response = await fetch('/api/lookups/trabajadores?solo_activos=false');
-      if (response.ok) {
-        const data = await response.json();
-        setTrabajadores(data);
-      }
-    } catch (error) {
-      console.error('Error fetching trabajadores:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Mostrar skeleton mientras carga el usuario o los datos
+  if (userLoading || (isLoading && canAccess('trabajadores', 'read'))) {
+    return <FullPageSkeleton />;
+  }
+
+  // Verificar permisos después de cargar
+  if (!canAccess('trabajadores', 'read')) {
+    return (
+      <div className="p-6 text-center">
+        <h2 className="text-xl font-semibold text-gray-800 mb-2">Acceso Denegado</h2>
+        <p className="text-gray-600">No tienes permisos para acceder a la gestión de trabajadores.</p>
+      </div>
+    );
+  }
 
   const handleAdd = async () => {
     try {
@@ -48,7 +48,7 @@ export default function TrabajadoresManager() {
       if (response.ok) {
         setNewTrabajador({ nombre: '', activo: true });
         setShowAddForm(false);
-        fetchTrabajadores();
+        mutate(); // Revalidar cache
         showSuccess('Trabajador creado', `El trabajador "${newTrabajador.nombre}" ha sido creado exitosamente.`);
       } else {
         const errorData = await response.json();
@@ -72,7 +72,7 @@ export default function TrabajadoresManager() {
       });
       if (response.ok) {
         setEditingTrabajador(null);
-        fetchTrabajadores();
+        mutate(); // Revalidar cache
         showSuccess('Trabajador actualizado', `El trabajador "${trabajador.nombre}" ha sido actualizado exitosamente.`);
       } else {
         const errorData = await response.json();
@@ -92,7 +92,7 @@ export default function TrabajadoresManager() {
         try {
           const response = await fetch(`/api/trabajadores/${id}`, { method: 'DELETE' });
           if (response.ok) {
-            fetchTrabajadores();
+            mutate(); // Revalidar cache
             showSuccess('Trabajador eliminado', `El trabajador "${nombre}" ha sido eliminado exitosamente.`);
           } else {
             const errorData = await response.json();
@@ -125,7 +125,7 @@ export default function TrabajadoresManager() {
         }),
       });
       if (response.ok) {
-        fetchTrabajadores();
+        mutate(); // Revalidar cache
         showSuccess('Estado actualizado', `El trabajador "${trabajador.nombre}" ha sido ${accion} exitosamente.`);
       } else {
         const errorData = await response.json();
@@ -150,7 +150,7 @@ export default function TrabajadoresManager() {
     }
   });
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="w-6 h-6 border-2 border-slate-300 border-t-[#D17C22] rounded-full animate-spin"></div>
@@ -277,15 +277,30 @@ export default function TrabajadoresManager() {
               <p className="text-sm text-slate-500 mt-1">El slug se generará automáticamente</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Estado</label>
-              <select
-                value={newTrabajador.activo ? 'true' : 'false'}
-                onChange={(e) => setNewTrabajador({ ...newTrabajador, activo: e.target.value === 'true' })}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-[#D17C22]/20 focus:border-[#D17C22]"
-              >
-                <option value="true">Activo</option>
-                <option value="false">Inactivo</option>
-              </select>
+              <label className="block text-sm font-medium text-slate-700 mb-3">Estado</label>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setNewTrabajador({ ...newTrabajador, activo: !newTrabajador.activo })}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#D17C22] focus:ring-offset-2 ${
+                    newTrabajador.activo ? 'bg-green-600' : 'bg-slate-300'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      newTrabajador.activo ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+                <span className={`text-sm font-medium ${
+                  newTrabajador.activo ? 'text-green-700' : 'text-slate-500'
+                }`}>
+                  {newTrabajador.activo ? 'Activo' : 'Inactivo'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                Los trabajadores activos aparecerán en los filtros y formularios
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3 mt-4">
@@ -336,25 +351,48 @@ export default function TrabajadoresManager() {
                   </td>
                   <td className="px-6 py-4">
                     {editingTrabajador?.id === trabajador.id ? (
-                      <select
-                        value={editingTrabajador.activo ? 'true' : 'false'}
-                        onChange={(e) => setEditingTrabajador({ ...editingTrabajador, activo: e.target.value === 'true' })}
-                        className="w-full px-2 py-1 rounded border border-slate-300 focus:ring-2 focus:ring-[#D17C22]/20 focus:border-[#D17C22]"
-                      >
-                        <option value="true">Activo</option>
-                        <option value="false">Inactivo</option>
-                      </select>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-slate-600 min-w-[60px]">Estado:</span>
+                        <button
+                          type="button"
+                          onClick={() => setEditingTrabajador({ ...editingTrabajador, activo: !editingTrabajador.activo })}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#D17C22] focus:ring-offset-2 ${
+                            editingTrabajador.activo ? 'bg-green-600' : 'bg-slate-300'
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              editingTrabajador.activo ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                        <span className={`text-xs font-medium ${
+                          editingTrabajador.activo ? 'text-green-700' : 'text-slate-500'
+                        }`}>
+                          {editingTrabajador.activo ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </div>
                     ) : (
-                      <button
-                        onClick={() => toggleActivo(trabajador)}
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                          trabajador.activo
-                            ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                            : 'bg-red-50 text-red-700 hover:bg-red-100'
-                        }`}
-                      >
-                        {trabajador.activo ? '✓ Activo' : '✗ Inactivo'}
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => toggleActivo(trabajador)}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#D17C22] focus:ring-offset-2 ${
+                            trabajador.activo ? 'bg-green-600' : 'bg-slate-300'
+                          }`}
+                          title={`Cambiar a ${trabajador.activo ? 'inactivo' : 'activo'}`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              trabajador.activo ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                        <span className={`text-sm font-medium ${
+                          trabajador.activo ? 'text-green-700' : 'text-slate-500'
+                        }`}>
+                          {trabajador.activo ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </div>
                     )}
                   </td>
                   <td className="px-6 py-4">
