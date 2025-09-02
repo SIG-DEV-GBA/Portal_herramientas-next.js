@@ -1,6 +1,6 @@
 // src/app/api/lookups/trabajadores/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/database/db";
 
 export const runtime = "nodejs";
 

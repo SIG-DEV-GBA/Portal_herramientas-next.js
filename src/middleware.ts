@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { verifyOpaqueTokenViaMe } from "@/lib/auth-opaque";
+import { verifyOpaqueTokenViaMe } from "@/lib/auth/auth-opaque";
 
 const AUTH_COOKIE = process.env.AUTH_COOKIE ?? "sid";
 

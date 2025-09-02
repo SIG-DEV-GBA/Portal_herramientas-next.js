@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { pyFetch } from "@/lib/http";
-import { getUserWithRole } from "@/lib/auth-opaque";
+import { pyFetch } from "@/lib/api/http";
+import { getUserWithRole } from "@/lib/auth/auth-opaque";
 
 export async function GET() {
   // Construimos el header Cookie con TODAS las cookies actuales

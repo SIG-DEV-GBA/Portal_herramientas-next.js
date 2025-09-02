@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { serialize } from "@/lib/serialize";
-import { requirePermission } from "@/lib/api-guard";
+import { prisma } from "@/lib/database/db";
+import { serialize } from "@/lib/utils/serialize";
+import { requirePermission } from "@/lib/utils/api-guard";
 
 // Función para generar slug a partir del nombre
 function generateSlug(nombre: string): string {

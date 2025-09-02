@@ -61,12 +61,12 @@ model fichas {
   ambito_municipal     String?                     @db.VarChar(150)
   tramite_tipo         fichas_tramite_tipo?
   complejidad          fichas_complejidad?
-  complejidad_peso     Int?                        @db.UnsignedTinyInt
+  complejidad_peso     Int?                        @db.UnsignedTinyInt @ignore
   enlace_base_id       Int                         @default(1) @db.UnsignedTinyInt
   enlace_seg_override  String?                     @db.VarChar(120)
   frase_publicitaria   String?                     @db.VarChar(300)
   texto_divulgacion    String?                     @db.Text
-  existe_frase         Boolean?
+  existe_frase         Boolean?                    @ignore
   destaque_principal   fichas_destaque_principal?
   destaque_secundario  fichas_destaque_secundario?
   created_at           DateTime                    @default(now()) @db.Timestamp(0)

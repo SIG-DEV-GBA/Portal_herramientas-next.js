@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/database/db";
 export const runtime = "nodejs";
 export async function GET() {
   const portales = await prisma.portales.findMany({ orderBy: { nombre: "asc" } });
