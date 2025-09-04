@@ -53,6 +53,39 @@ export default function FichaDetailModal({ ficha, isOpen, onClose }: Props) {
     }));
   };
 
+  const handleSave = async () => {
+    try {
+      const response = await fetch(`/api/apps/gestor-fichas/fichas/${ficha.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editedFicha),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al guardar los cambios');
+      }
+
+      const updatedFicha = await response.json();
+      console.log('Ficha actualizada exitosamente:', updatedFicha);
+      
+      setIsEditMode(false);
+      // Opcional: mostrar un mensaje de éxito
+      // toast.success('Cambios guardados exitosamente');
+      
+      // Opcional: recargar los datos para refrescar la vista
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Error al guardar:', error);
+      // Opcional: mostrar mensaje de error
+      // toast.error(error.message || 'Error al guardar los cambios');
+      alert('Error al guardar los cambios: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -75,30 +108,30 @@ export default function FichaDetailModal({ ficha, isOpen, onClose }: Props) {
 
   const getAmbitoInfo = (nivel: string) => {
     const info = {
-      'UE': { label: 'Unión Europea', icon: '🇪🇺', color: 'text-blue-700 bg-gradient-to-r from-blue-50 to-white border-blue-200' },
-      'ESTADO': { label: 'Estado Español', icon: '🏛️', color: 'text-[#D17C22] bg-gradient-to-r from-orange-50 to-white border-orange-200' },
-      'CCAA': { label: 'Comunidad Autónoma', icon: '🌐', color: 'text-[#8E8D29] bg-gradient-to-r from-green-50 to-white border-green-200' },
-      'PROVINCIA': { label: 'Provincial/Local', icon: '📍', color: 'text-amber-700 bg-gradient-to-r from-amber-50 to-white border-amber-200' }
+      'UE': { label: 'Unión Europea', icon: '🇪🇺', color: 'text-blue-700 bg-blue-50 border-blue-200' },
+      'ESTADO': { label: 'Estado Español', icon: '🏛️', color: 'text-[#D17C22] bg-orange-50 border-[#D17C22]/30' },
+      'CCAA': { label: 'Comunidad Autónoma', icon: '🌐', color: 'text-[#8E8D29] bg-green-50 border-[#8E8D29]/30' },
+      'PROVINCIA': { label: 'Provincial/Local', icon: '📍', color: 'text-amber-700 bg-amber-50 border-amber-200' }
     };
-    return info[nivel as keyof typeof info] || { label: nivel, icon: '📋', color: 'text-gray-600 bg-gradient-to-r from-gray-50 to-white border-gray-200' };
+    return info[nivel as keyof typeof info] || { label: nivel, icon: '📋', color: 'text-gray-600 bg-gray-50 border-gray-200' };
   };
 
   const getTramiteInfo = (tipo: string) => {
     const info = {
-      'si': { label: 'Online (Digital)', icon: '🌐', color: 'text-[#8E8D29] bg-gradient-to-r from-[#8E8D29]/10 to-white border-[#8E8D29]/30' },
-      'no': { label: 'Presencial', icon: '🏢', color: 'text-[#D17C22] bg-gradient-to-r from-[#D17C22]/10 to-white border-[#D17C22]/30' },
-      'directo': { label: 'Mixto (Ambas modalidades)', icon: '⚡', color: 'text-indigo-700 bg-gradient-to-r from-indigo-50 to-white border-indigo-200' }
+      'si': { label: 'Online (Digital)', icon: '🌐', color: 'text-[#8E8D29] bg-[#8E8D29]/10 border-[#8E8D29]/30' },
+      'no': { label: 'Presencial', icon: '🏢', color: 'text-[#D17C22] bg-[#D17C22]/10 border-[#D17C22]/30' },
+      'directo': { label: 'Mixto (Ambas modalidades)', icon: '⚡', color: 'text-indigo-700 bg-indigo-50 border-indigo-200' }
     };
-    return info[tipo as keyof typeof info] || { label: tipo, icon: '❓', color: 'text-gray-600 bg-gradient-to-r from-gray-50 to-white border-gray-200' };
+    return info[tipo as keyof typeof info] || { label: tipo, icon: '❓', color: 'text-gray-600 bg-gray-50 border-gray-200' };
   };
 
   const getComplejidadInfo = (nivel: string) => {
     const info = {
-      'baja': { label: 'Baja - Trámite sencillo', icon: '🟢', color: 'text-[#8E8D29] bg-gradient-to-r from-[#8E8D29]/10 to-white border-[#8E8D29]/30' },
-      'media': { label: 'Media - Complejidad moderada', icon: '🟡', color: 'text-amber-700 bg-gradient-to-r from-amber-50 to-white border-amber-200' },
-      'alta': { label: 'Alta - Trámite complejo', icon: '🔴', color: 'text-[#D17C22] bg-gradient-to-r from-[#D17C22]/10 to-white border-[#D17C22]/30' }
+      'baja': { label: 'Baja - Trámite sencillo', icon: '🟢', color: 'text-[#8E8D29] bg-[#8E8D29]/10 border-[#8E8D29]/30' },
+      'media': { label: 'Media - Complejidad moderada', icon: '🟡', color: 'text-amber-700 bg-amber-50 border-amber-200' },
+      'alta': { label: 'Alta - Trámite complejo', icon: '🔴', color: 'text-[#D17C22] bg-[#D17C22]/10 border-[#D17C22]/30' }
     };
-    return info[nivel as keyof typeof info] || { label: nivel, icon: '⚪', color: 'text-gray-600 bg-gradient-to-r from-gray-50 to-white border-gray-200' };
+    return info[nivel as keyof typeof info] || { label: nivel, icon: '⚪', color: 'text-gray-600 bg-gray-50 border-gray-200' };
   };
 
   const tabs: Tab[] = [
@@ -124,9 +157,10 @@ export default function FichaDetailModal({ ficha, isOpen, onClose }: Props) {
     }
   ];
 
-  const ambitoInfo = getAmbitoInfo(ficha.ambito_nivel);
-  const tramiteInfo = ficha.tramite_tipo ? getTramiteInfo(ficha.tramite_tipo) : null;
-  const complejidadInfo = ficha.complejidad ? getComplejidadInfo(ficha.complejidad) : null;
+  const currentFicha = isEditMode ? editedFicha : ficha;
+  const ambitoInfo = getAmbitoInfo(currentFicha.ambito_nivel);
+  const tramiteInfo = currentFicha.tramite_tipo ? getTramiteInfo(currentFicha.tramite_tipo) : null;
+  const complejidadInfo = currentFicha.complejidad ? getComplejidadInfo(currentFicha.complejidad) : null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -137,7 +171,7 @@ export default function FichaDetailModal({ ficha, isOpen, onClose }: Props) {
       <div className="relative min-h-full flex items-start justify-center p-4 py-8">
         <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden my-8">
           {/* Header */}
-          <div className="bg-gradient-to-r from-[#D17C22] to-[#8E8D29] px-6 py-5">
+          <div className="bg-[#D17C22] px-6 py-5">
             <div className="flex items-start justify-between">
               <div className="flex-1 pr-4">
                 <div className="flex items-center gap-3 mb-3">
@@ -153,13 +187,28 @@ export default function FichaDetailModal({ ficha, isOpen, onClose }: Props) {
                     </p>
                   </div>
                 </div>
-                <h1 className="text-2xl font-bold text-white leading-tight">
-                  {ficha.nombre_ficha}
-                </h1>
+                {isEditMode ? (
+                  <input
+                    type="text"
+                    value={editedFicha.nombre_ficha}
+                    onChange={(e) => handleFieldChange('nombre_ficha', e.target.value)}
+                    className="text-2xl font-bold text-gray-900 leading-tight bg-white rounded-lg px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+                  />
+                ) : (
+                  <h1 className="text-2xl font-bold text-white leading-tight">
+                    {ficha.nombre_ficha}
+                  </h1>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setIsEditMode(!isEditMode)}
+                  onClick={() => {
+                    if (isEditMode) {
+                      // Resetear cambios al cancelar
+                      setEditedFicha(ficha);
+                    }
+                    setIsEditMode(!isEditMode);
+                  }}
                   className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                     isEditMode 
                       ? 'bg-white text-[#D17C22] hover:bg-gray-100' 
@@ -219,15 +268,25 @@ export default function FichaDetailModal({ ficha, isOpen, onClose }: Props) {
               {activeTab === 'general' && (
                 <div className="space-y-6">
                   {/* Frase publicitaria */}
-                  {ficha.frase_publicitaria && (
-                    <div className="bg-gradient-to-r from-[#8E8D29]/10 to-white border border-[#8E8D29]/30 rounded-xl p-4">
+                  {(ficha.frase_publicitaria || isEditMode) && (
+                    <div className="bg-[#8E8D29]/10 border border-[#8E8D29]/30 rounded-xl p-4">
                       <h3 className="text-sm font-semibold text-[#8E8D29] mb-2 flex items-center gap-2">
                         <Zap className="w-4 h-4" />
                         Texto para Divulgación
                       </h3>
-                      <p className="text-[#8E8D29]/90 leading-relaxed">
-                        {ficha.frase_publicitaria}
-                      </p>
+                      {isEditMode ? (
+                        <textarea
+                          value={editedFicha.frase_publicitaria || ''}
+                          onChange={(e) => handleFieldChange('frase_publicitaria', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8E8D29] focus:border-transparent text-[#8E8D29]/90 leading-relaxed resize-none"
+                          rows={3}
+                          placeholder="Ingrese el texto para divulgación..."
+                        />
+                      ) : (
+                        <p className="text-[#8E8D29]/90 leading-relaxed">
+                          {ficha.frase_publicitaria}
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -237,34 +296,73 @@ export default function FichaDetailModal({ ficha, isOpen, onClose }: Props) {
                     <div className={`p-4 rounded-xl border ${ambitoInfo.color}`}>
                       <div className="flex items-center gap-3">
                         <div className="text-2xl">{ambitoInfo.icon}</div>
-                        <div>
+                        <div className="flex-1">
                           <p className="text-xs font-medium opacity-75">ÁMBITO</p>
-                          <p className="font-semibold">{ambitoInfo.label}</p>
+                          {isEditMode ? (
+                            <select
+                              value={editedFicha.ambito_nivel}
+                              onChange={(e) => handleFieldChange('ambito_nivel', e.target.value)}
+                              className="w-full font-semibold bg-transparent border-none focus:outline-none focus:ring-0 p-0"
+                            >
+                              <option value="UE">Unión Europea</option>
+                              <option value="ESTADO">Estado Español</option>
+                              <option value="CCAA">Comunidad Autónoma</option>
+                              <option value="PROVINCIA">Provincial/Local</option>
+                            </select>
+                          ) : (
+                            <p className="font-semibold">{ambitoInfo.label}</p>
+                          )}
                         </div>
                       </div>
                     </div>
 
                     {/* Trámite */}
-                    {tramiteInfo && (
-                      <div className={`p-4 rounded-xl border ${tramiteInfo.color}`}>
+                    {(tramiteInfo || isEditMode) && (
+                      <div className={`p-4 rounded-xl border ${tramiteInfo?.color || 'text-gray-600 bg-gray-50 border-gray-200'}`}>
                         <div className="flex items-center gap-3">
-                          <div className="text-2xl">{tramiteInfo.icon}</div>
-                          <div>
+                          <div className="text-2xl">{tramiteInfo?.icon || '❓'}</div>
+                          <div className="flex-1">
                             <p className="text-xs font-medium opacity-75">MODALIDAD</p>
-                            <p className="font-semibold">{tramiteInfo.label}</p>
+                            {isEditMode ? (
+                              <select
+                                value={editedFicha.tramite_tipo || ''}
+                                onChange={(e) => handleFieldChange('tramite_tipo', e.target.value)}
+                                className="w-full font-semibold bg-transparent border-none focus:outline-none focus:ring-0 p-0"
+                              >
+                                <option value="">Seleccionar...</option>
+                                <option value="si">Online (Digital)</option>
+                                <option value="no">Presencial</option>
+                                <option value="directo">Mixto (Ambas modalidades)</option>
+                              </select>
+                            ) : (
+                              <p className="font-semibold">{tramiteInfo.label}</p>
+                            )}
                           </div>
                         </div>
                       </div>
                     )}
 
                     {/* Complejidad */}
-                    {complejidadInfo && (
-                      <div className={`p-4 rounded-xl border ${complejidadInfo.color}`}>
+                    {(complejidadInfo || isEditMode) && (
+                      <div className={`p-4 rounded-xl border ${complejidadInfo?.color || 'text-gray-600 bg-gray-50 border-gray-200'}`}>
                         <div className="flex items-center gap-3">
-                          <div className="text-2xl">{complejidadInfo.icon}</div>
-                          <div>
+                          <div className="text-2xl">{complejidadInfo?.icon || '⚪'}</div>
+                          <div className="flex-1">
                             <p className="text-xs font-medium opacity-75">COMPLEJIDAD</p>
-                            <p className="font-semibold">{complejidadInfo.label}</p>
+                            {isEditMode ? (
+                              <select
+                                value={editedFicha.complejidad || ''}
+                                onChange={(e) => handleFieldChange('complejidad', e.target.value)}
+                                className="w-full font-semibold bg-transparent border-none focus:outline-none focus:ring-0 p-0"
+                              >
+                                <option value="">Seleccionar...</option>
+                                <option value="baja">Baja - Trámite sencillo</option>
+                                <option value="media">Media - Complejidad moderada</option>
+                                <option value="alta">Alta - Trámite complejo</option>
+                              </select>
+                            ) : (
+                              <p className="font-semibold">{complejidadInfo.label}</p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -272,31 +370,71 @@ export default function FichaDetailModal({ ficha, isOpen, onClose }: Props) {
                   </div>
 
                   {/* Información adicional */}
-                  {(ficha.texto_divulgacion || ficha.destaque_principal || ficha.destaque_secundario) && (
+                  {(ficha.texto_divulgacion || ficha.destaque_principal || ficha.destaque_secundario || isEditMode) && (
                     <div className="bg-gray-50 rounded-xl p-4">
                       <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                         <Tag className="w-4 h-4" />
                         Información Adicional
                       </h3>
                       <div className="space-y-3">
-                        {ficha.texto_divulgacion && (
+                        {(ficha.texto_divulgacion || isEditMode) && (
                           <div>
                             <h4 className="text-sm font-medium text-gray-700 mb-1">Texto de Divulgación</h4>
-                            <p className="text-gray-600 leading-relaxed">
-                              {ficha.texto_divulgacion}
-                            </p>
+                            {isEditMode ? (
+                              <textarea
+                                value={editedFicha.texto_divulgacion || ''}
+                                onChange={(e) => handleFieldChange('texto_divulgacion', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-600 leading-relaxed resize-none"
+                                rows={3}
+                                placeholder="Ingrese el texto de divulgación..."
+                              />
+                            ) : (
+                              <p className="text-gray-600 leading-relaxed">
+                                {ficha.texto_divulgacion}
+                              </p>
+                            )}
                           </div>
                         )}
-                        <div className="flex gap-2">
-                          {ficha.destaque_principal && (
-                            <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
-                              ⭐ {ficha.destaque_principal}
-                            </span>
+                        <div className="space-y-2">
+                          {(ficha.destaque_principal || isEditMode) && (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-700 mb-1">Destaque Principal</h4>
+                              {isEditMode ? (
+                                <select
+                                  value={editedFicha.destaque_principal || ''}
+                                  onChange={(e) => handleFieldChange('destaque_principal', e.target.value)}
+                                  className="w-full px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                >
+                                  <option value="">Sin destaque</option>
+                                  <option value="nueva">Nueva - Primera vez que se introduce</option>
+                                  <option value="para_publicitar">Para Publicitar - Ficha importante</option>
+                                </select>
+                              ) : ficha.destaque_principal ? (
+                                <span className="inline-block px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
+                                  {ficha.destaque_principal === 'nueva' ? '🆕 Nueva' : '📢 Para Publicitar'}
+                                </span>
+                              ) : null}
+                            </div>
                           )}
-                          {ficha.destaque_secundario && (
-                            <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
-                              ✨ {ficha.destaque_secundario}
-                            </span>
+                          {(ficha.destaque_secundario || isEditMode) && (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-700 mb-1">Destaque Secundario</h4>
+                              {isEditMode ? (
+                                <select
+                                  value={editedFicha.destaque_secundario || ''}
+                                  onChange={(e) => handleFieldChange('destaque_secundario', e.target.value)}
+                                  className="w-full px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                >
+                                  <option value="">Sin destaque</option>
+                                  <option value="nueva">Nueva - Primera vez que se introduce</option>
+                                  <option value="para_publicitar">Para Publicitar - Ficha importante</option>
+                                </select>
+                              ) : ficha.destaque_secundario ? (
+                                <span className="inline-block px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
+                                  {ficha.destaque_secundario === 'nueva' ? '🆕 Nueva' : '📢 Para Publicitar'}
+                                </span>
+                              ) : null}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -484,14 +622,15 @@ export default function FichaDetailModal({ ficha, isOpen, onClose }: Props) {
                 </button>
                 {isEditMode && (
                   <button
-                    className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#8E8D29] to-[#8E8D29]/90 rounded-lg hover:from-[#8E8D29]/90 hover:to-[#8E8D29] transition-all duration-200"
+                    onClick={handleSave}
+                    className="px-4 py-2 text-sm font-medium text-white bg-[#8E8D29] rounded-lg hover:bg-[#8E8D29]/90 transition-all duration-200"
                   >
                     Guardar Cambios
                   </button>
                 )}
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#D17C22] to-[#D17C22]/90 rounded-lg hover:from-[#D17C22]/90 hover:to-[#D17C22] transition-all duration-200"
+                  className="px-4 py-2 text-sm font-medium text-white bg-[#D17C22] rounded-lg hover:bg-[#D17C22]/90 transition-all duration-200"
                 >
                   Cerrar
                 </button>

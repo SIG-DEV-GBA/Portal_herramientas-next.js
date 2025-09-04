@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const provincia_id = toInt(sp.get("provincia_id"));
     const trabajador_id = toInt(sp.get("trabajador_id"));
     const trabajador_subida_id = toInt(sp.get("trabajador_subida_id"));
-    const existe_frase = parseBool(sp.get("existe_frase"));
+
 
     // --- periodo: año/mes numérico (1..12) o rango libre
     const anio = toInt(sp.get("anio"));
@@ -78,10 +78,6 @@ export async function GET(req: NextRequest) {
     if (ambito)               { whereParts.push("f.ambito_nivel = ?"); params.push(ambito); }
     if (tramite_tipo)         { whereParts.push("f.tramite_tipo = ?"); params.push(tramite_tipo); }
     if (complejidad)          { whereParts.push("f.complejidad = ?"); params.push(complejidad); }
-    if (typeof existe_frase === "boolean") {
-      whereParts.push("f.existe_frase = ?");
-      params.push(existe_frase ? 1 : 0);
-    }
     if (ccaa_id)              { whereParts.push("f.ambito_ccaa_id = ?"); params.push(ccaa_id); }
     if (provincia_id) {
       const { getProvinciaInclusiveWhere } = await import('@/lib/utils/provincia-filter');

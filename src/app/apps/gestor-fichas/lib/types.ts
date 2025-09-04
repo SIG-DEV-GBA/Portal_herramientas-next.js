@@ -2,6 +2,7 @@
 export type Ambito = "UE" | "ESTADO" | "CCAA" | "PROVINCIA" | "";
 export type TramiteTipo = "si" | "no" | "directo" | "";
 export type Complejidad = "baja" | "media" | "alta" | "";
+export type DestaqueTipo = "nueva" | "para_publicitar";
 
 /** Entidad Ficha (campos mínimos + algunos opcionales comunes en la UI) */
 export type Ficha = {
@@ -30,8 +31,8 @@ export type Ficha = {
   frase_publicitaria?: string | null;
   trabajador_id?: number | null;
   trabajador_subida_id?: number | null;
-  destaque_principal?: string | null;
-  destaque_secundario?: string | null;
+  destaque_principal?: DestaqueTipo | null;
+  destaque_secundario?: DestaqueTipo | null;
 
   // Relaciones opcionales (cuando usas withRelations=true)
   trabajadores?: { id: number; nombre: string; slug: string } | null;
@@ -74,6 +75,10 @@ export type Filters = {
 
   /** opcional si lo usas en filtros avanzados */
   existe_frase?: "" | "true" | "false";
+  
+  /** filtros por etiquetas de destaque */
+  destaque_principal?: "" | "true" | "false";
+  destaque_secundario?: "" | "true" | "false";
 };
 
 // ==========================

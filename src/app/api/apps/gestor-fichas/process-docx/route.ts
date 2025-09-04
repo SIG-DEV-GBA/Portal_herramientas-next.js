@@ -10,6 +10,7 @@ interface ExtractedData {
   tramite_tipo?: "online" | "presencial" | "directo";
   ambito_nivel?: "UE" | "ESTADO" | "CCAA" | "PROVINCIA";
   fecha_redaccion?: string;
+  trabajador_id?: string;
 }
 
 // Patrones para extraer información del texto
@@ -245,10 +246,11 @@ function extractDataFromText(text: string): ExtractedData {
     }
   }
 
-  // Extraer fecha de redacción de la sección "Otros datos"
+  // Extraer fecha de redacción y redactor de la sección "Otros datos"
   const otrosDatosMatch = text.match(/otros datos[:\s]*.*?$/im);
   if (otrosDatosMatch) {
     const seccionOtrosDatos = otrosDatosMatch[0];
+    
     // Buscar la última fecha en la sección de otros datos
     const fechasEnOtrosDatos = seccionOtrosDatos.match(/(\d{1,2}\/\d{1,2}\/\d{4})/g);
     if (fechasEnOtrosDatos && fechasEnOtrosDatos.length > 0) {
@@ -256,6 +258,12 @@ function extractDataFromText(text: string): ExtractedData {
       const ultimaFecha = fechasEnOtrosDatos[fechasEnOtrosDatos.length - 1];
       const [day, month, year] = ultimaFecha.split('/');
       result.fecha_redaccion = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    
+    // Buscar el campo "Usuario" en la sección de otros datos
+    const usuarioMatch = seccionOtrosDatos.match(/usuario[:\s]*([^\n\r]+?)(?=\s+|$)/i);
+    if (usuarioMatch) {
+      result.trabajador_id = usuarioMatch[1].trim();
     }
   }
 
@@ -321,6 +329,33 @@ export async function POST(req: NextRequest) {
 
     // Extraer datos estructurados
     const extractedData = extractDataFromText(text);
+    
+    // Si se extrajo un redactor como texto, intentar convertirlo a ID
+    if (extractedData.trabajador_id && typeof extractedData.trabajador_id === 'string') {
+      try {
+        // Buscar trabajador por nombre (búsqueda parcial)
+        const { prisma } = await import("@/lib/database/db");
+        const trabajador = await prisma.trabajadores.findFirst({
+          where: { 
+            nombre: { 
+              contains: extractedData.trabajador_id.trim(),
+              mode: 'insensitive'
+            } 
+          },
+          select: { id: true }
+        });
+        
+        if (trabajador) {
+          extractedData.trabajador_id = trabajador.id.toString();
+        } else {
+          // Si no se encuentra el trabajador, eliminar el campo para evitar errores
+          delete extractedData.trabajador_id;
+        }
+      } catch (error) {
+        console.warn('Error buscando trabajador por nombre:', error);
+        delete extractedData.trabajador_id;
+      }
+    }
 
     // Log para debug (quitar en producción)
     console.log('Texto extraído (primeros 500 chars):', text.substring(0, 500));

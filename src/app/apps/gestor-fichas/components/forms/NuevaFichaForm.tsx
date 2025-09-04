@@ -20,14 +20,14 @@ interface NuevaFichaFormData {
   ambito_ccaa_id: string;
   ambito_provincia_id: string;
   ambito_municipal: string;
-  trabajador_id: string;
-  trabajador_subida_id: string;
+  trabajador_id: string; // Redactor
+  trabajador_subida_id: string; // Quien sube la ficha
   complejidad: "baja" | "media" | "alta" | "";
   tematicas: string[];
   portales: string[];
   texto_divulgacion: string;
-  destaque_principal: string;
-  destaque_secundario: string;
+  destaque_principal: boolean;
+  destaque_secundario: boolean;
 }
 
 interface AutoFilledData {
@@ -37,6 +37,7 @@ interface AutoFilledData {
   tramite_tipo?: "online" | "presencial" | "directo";
   ambito_nivel?: "UE" | "ESTADO" | "CCAA" | "PROVINCIA";
   fecha_redaccion?: string;
+  trabajador_id?: string;
 }
 
 interface NuevaFichaFormProps {
@@ -65,8 +66,8 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
     tematicas: [],
     portales: [],
     texto_divulgacion: "",
-    destaque_principal: "",
-    destaque_secundario: "",
+    destaque_principal: false,
+    destaque_secundario: false,
   });
 
   const [autoFilledData, setAutoFilledData] = useState<AutoFilledData>({});
@@ -226,6 +227,10 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
     return autoFilledData[field] !== undefined;
   };
 
+  const isModifiedFromAuto = (field: keyof AutoFilledData) => {
+    return autoFilledData[field] !== undefined && formData[field] !== autoFilledData[field];
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -237,7 +242,7 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
             "border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200",
             isDragActive 
               ? "border-blue-500 bg-blue-50" 
-              : "border-gray-300 hover:border-gray-400"
+              : "border-gray-300 hover:border-[#8E8D29]"
           ].join(' ')}
           onDragEnter={handleDragEnter}
           onDragOver={handleDragOver}
@@ -269,14 +274,14 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-blue-600 hover:text-blue-700 font-medium"
+                    className="text-[#D17C22] hover:text-blue-700 font-medium"
                   >
                     selecciona un archivo
                   </button>
                 </p>
               </div>
               <p className="text-xs text-gray-400">
-                Se auto-completarán: nombre, frase publicitaria, vencimiento, tipo de trámite, ámbito territorial y fecha de redacción
+                Se auto-completarán: nombre, frase publicitaria, vencimiento, tipo de trámite, ámbito territorial, fecha de redacción y redactor
               </p>
             </div>
           )}
@@ -291,9 +296,9 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-8">
           {/* Información Principal */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 space-y-6 border border-blue-100">
+          <div className="bg-blue-50 rounded-xl p-6 space-y-6 border border-blue-200">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-[#D17C22] rounded-lg flex items-center justify-center">
                 <FileText className="w-4 h-4 text-white" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900">Información Principal</h3>
@@ -303,9 +308,14 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Nombre de la ayuda
-                {isAutoFilled('nombre_ficha') && (
-                  <span className="ml-2 text-xs text-green-600 inline-flex items-center gap-1 font-medium">
+                {isAutoFilled('nombre_ficha') && !isModifiedFromAuto('nombre_ficha') && (
+                  <span className="ml-2 text-xs text-[#8E8D29] inline-flex items-center gap-1 font-medium">
                     <CheckCircle size={12} /> Auto-completado
+                  </span>
+                )}
+                {isModifiedFromAuto('nombre_ficha') && (
+                  <span className="ml-2 text-xs text-blue-600 inline-flex items-center gap-1 font-medium">
+                    <Eye size={12} /> Modificado
                   </span>
                 )}
               </label>
@@ -316,10 +326,12 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
                   onChange={(e) => handleInputChange('nombre_ficha', e.target.value)}
                   className={[
                     "flex-1 px-4 py-3 border rounded-xl text-sm font-medium shadow-sm transition-all duration-200",
-                    isAutoFilled('nombre_ficha')
-                      ? "border-green-400 bg-gradient-to-r from-green-50 to-emerald-50 text-green-900"
-                      : "border-gray-300 bg-white hover:border-gray-400",
-                    "focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:shadow-md"
+                    isAutoFilled('nombre_ficha') && !isModifiedFromAuto('nombre_ficha')
+                      ? "border-green-400 bg-green-50 text-green-900"
+                      : isModifiedFromAuto('nombre_ficha')
+                      ? "border-blue-400 bg-blue-50 text-blue-900"
+                      : "border-gray-300 bg-white hover:border-[#8E8D29]",
+                    "focus:ring-2 focus:ring-[#D17C22]/30 focus:border-[#D17C22] focus:shadow-md"
                   ].join(' ')}
                   placeholder="Introduce el nombre completo de la ayuda..."
                   required
@@ -347,8 +359,8 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
                 value={formData.id_ficha_subida}
                 onChange={(e) => handleInputChange('id_ficha_subida', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm font-medium bg-white shadow-sm
-                         focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:shadow-md
-                         hover:border-gray-400 transition-all duration-200"
+                         focus:ring-2 focus:ring-[#D17C22]/30 focus:border-[#D17C22] focus:shadow-md
+                         hover:border-[#8E8D29] transition-all duration-200"
                 placeholder="ID único identificador de la ficha..."
                 required
               />
@@ -358,9 +370,14 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Texto para divulgación
-                {isAutoFilled('frase_publicitaria') && (
-                  <span className="ml-2 text-xs text-green-600 inline-flex items-center gap-1 font-medium">
+                {isAutoFilled('frase_publicitaria') && !isModifiedFromAuto('frase_publicitaria') && (
+                  <span className="ml-2 text-xs text-[#8E8D29] inline-flex items-center gap-1 font-medium">
                     <CheckCircle size={12} /> Auto-completado
+                  </span>
+                )}
+                {isModifiedFromAuto('frase_publicitaria') && (
+                  <span className="ml-2 text-xs text-blue-600 inline-flex items-center gap-1 font-medium">
+                    <Eye size={12} /> Modificado
                   </span>
                 )}
               </label>
@@ -371,10 +388,12 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
                   rows={3}
                   className={[
                     "flex-1 px-4 py-3 border rounded-xl text-sm font-medium shadow-sm transition-all duration-200 resize-none",
-                    isAutoFilled('frase_publicitaria')
-                      ? "border-green-400 bg-gradient-to-r from-green-50 to-emerald-50 text-green-900"
-                      : "border-gray-300 bg-white hover:border-gray-400",
-                    "focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:shadow-md"
+                    isAutoFilled('frase_publicitaria') && !isModifiedFromAuto('frase_publicitaria')
+                      ? "border-green-400 bg-green-50 text-green-900"
+                      : isModifiedFromAuto('frase_publicitaria')
+                      ? "border-blue-400 bg-blue-50 text-blue-900"
+                      : "border-gray-300 bg-white hover:border-[#8E8D29]",
+                    "focus:ring-2 focus:ring-[#D17C22]/30 focus:border-[#D17C22] focus:shadow-md"
                   ].join(' ')}
                   placeholder="Descripción completa y atractiva para la divulgación de la ayuda..."
                   required
@@ -394,7 +413,7 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
           </div>
 
           {/* Configuración Territorial y Administrativa */}
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 space-y-6 border border-purple-100">
+          <div className="bg-purple-50 rounded-xl p-6 space-y-6 border border-purple-200">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
                 <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -409,9 +428,14 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Ámbito Territorial
-                  {isAutoFilled('ambito_nivel') && (
+                  {isAutoFilled('ambito_nivel') && !isModifiedFromAuto('ambito_nivel') && (
                     <span className="ml-2 text-xs text-amber-600 inline-flex items-center gap-1 font-medium">
                       <Eye size={12} /> Autodetectado
+                    </span>
+                  )}
+                  {isModifiedFromAuto('ambito_nivel') && (
+                    <span className="ml-2 text-xs text-blue-600 inline-flex items-center gap-1 font-medium">
+                      <Eye size={12} /> Modificado
                     </span>
                   )}
                 </label>
@@ -423,10 +447,12 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
                       className={[
                         "w-full px-4 py-3 pr-10 border rounded-xl text-sm font-medium appearance-none cursor-pointer",
                         "shadow-sm transition-all duration-200",
-                        isAutoFilled('ambito_nivel')
-                          ? "border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 text-amber-900"
-                          : "border-gray-300 bg-white hover:border-gray-400",
-                        "focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:shadow-md"
+                        isAutoFilled('ambito_nivel') && !isModifiedFromAuto('ambito_nivel')
+                          ? "border-amber-400 bg-amber-50 text-amber-900"
+                          : isModifiedFromAuto('ambito_nivel')
+                          ? "border-blue-400 bg-blue-50 text-blue-900"
+                          : "border-gray-300 bg-white hover:border-[#8E8D29]",
+                        "focus:ring-2 focus:ring-[#D17C22]/30 focus:border-[#D17C22] focus:shadow-md"
                       ].join(' ')}
                       required
                     >
@@ -459,9 +485,14 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Modalidad de Trámite
-                  {isAutoFilled('tramite_tipo') && (
-                    <span className="ml-2 text-xs text-green-600 inline-flex items-center gap-1 font-medium">
+                  {isAutoFilled('tramite_tipo') && !isModifiedFromAuto('tramite_tipo') && (
+                    <span className="ml-2 text-xs text-[#8E8D29] inline-flex items-center gap-1 font-medium">
                       <CheckCircle size={12} /> Auto-detectado
+                    </span>
+                  )}
+                  {isModifiedFromAuto('tramite_tipo') && (
+                    <span className="ml-2 text-xs text-blue-600 inline-flex items-center gap-1 font-medium">
+                      <Eye size={12} /> Modificado
                     </span>
                   )}
                 </label>
@@ -473,10 +504,12 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
                       className={[
                         "w-full px-4 py-3 pr-10 border rounded-xl text-sm font-medium appearance-none cursor-pointer",
                         "shadow-sm transition-all duration-200",
-                        isAutoFilled('tramite_tipo')
-                          ? "border-green-400 bg-gradient-to-r from-green-50 to-emerald-50 text-green-900"
-                          : "border-gray-300 bg-white hover:border-gray-400",
-                        "focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:shadow-md"
+                        isAutoFilled('tramite_tipo') && !isModifiedFromAuto('tramite_tipo')
+                          ? "border-green-400 bg-green-50 text-green-900"
+                          : isModifiedFromAuto('tramite_tipo')
+                          ? "border-blue-400 bg-blue-50 text-blue-900"
+                          : "border-gray-300 bg-white hover:border-[#8E8D29]",
+                        "focus:ring-2 focus:ring-[#D17C22]/30 focus:border-[#D17C22] focus:shadow-md"
                       ].join(' ')}
                       required
                     >
@@ -505,11 +538,11 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Trabajador Responsable */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Trabajador que ha subido la ficha */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Trabajador Responsable
+                  Trabajador que ha subido la ficha
                 </label>
                 <div className="relative">
                   <select
@@ -517,8 +550,8 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
                     onChange={(e) => handleInputChange('trabajador_id', e.target.value)}
                     className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-xl text-sm font-medium
                              bg-white shadow-sm transition-all duration-200 appearance-none cursor-pointer
-                             focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:shadow-md
-                             hover:border-gray-400"
+                             focus:ring-2 focus:ring-[#D17C22]/30 focus:border-[#D17C22] focus:shadow-md
+                             hover:border-[#8E8D29]"
                     required
                   >
                     <option value="" className="text-gray-500">👤 Seleccionar trabajador...</option>
@@ -534,6 +567,116 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
                 </div>
               </div>
 
+              {/* Redactor de la ficha */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  Redactor de la ficha
+                  {isAutoFilled('trabajador_id') && !isModifiedFromAuto('trabajador_id') && (
+                    <span className="ml-2 text-xs text-[#8E8D29] inline-flex items-center gap-1 font-medium">
+                      <CheckCircle size={12} /> Auto-detectado
+                    </span>
+                  )}
+                  {isModifiedFromAuto('trabajador_id') && (
+                    <span className="ml-2 text-xs text-blue-600 inline-flex items-center gap-1 font-medium">
+                      <Eye size={12} /> Modificado
+                    </span>
+                  )}
+                </label>
+                <div className="flex gap-3">
+                  <div className="relative flex-1">
+                    <select
+                      value={formData.trabajador_id}
+                      onChange={(e) => handleInputChange('trabajador_id', e.target.value)}
+                      className={[
+                        "w-full px-4 py-3 pr-10 border rounded-xl text-sm font-medium appearance-none cursor-pointer",
+                        "shadow-sm transition-all duration-200",
+                        isAutoFilled('trabajador_id') && !isModifiedFromAuto('trabajador_id')
+                          ? "border-green-400 bg-green-50 text-green-900"
+                          : isModifiedFromAuto('trabajador_id')
+                          ? "border-blue-400 bg-blue-50 text-blue-900"
+                          : "border-gray-300 bg-white hover:border-[#8E8D29]",
+                        "focus:ring-2 focus:ring-[#D17C22]/30 focus:border-[#D17C22] focus:shadow-md"
+                      ].join(' ')}
+                    >
+                      <option value="" className="text-gray-500">✍️ Seleccionar redactor...</option>
+                      {trabajadores.map((t) => (
+                        <option key={t.id} value={t.id} className="font-medium">{t.nombre}</option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                  {isAutoFilled('trabajador_id') && (
+                    <button
+                      type="button"
+                      onClick={() => resetAutoField('trabajador_id')}
+                      className="px-4 py-3 text-xs text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+                      title="Resetear al valor auto-detectado"
+                    >
+                      <RotateCcw size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Trabajador que sube la ficha */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  Trabajador que sube la ficha
+                  {isAutoFilled('trabajador_subida_id') && !isModifiedFromAuto('trabajador_subida_id') && (
+                    <span className="ml-2 text-xs text-[#8E8D29] inline-flex items-center gap-1 font-medium">
+                      <CheckCircle size={12} /> Auto-detectado
+                    </span>
+                  )}
+                  {isModifiedFromAuto('trabajador_subida_id') && (
+                    <span className="ml-2 text-xs text-blue-600 inline-flex items-center gap-1 font-medium">
+                      <Eye size={12} /> Modificado
+                    </span>
+                  )}
+                </label>
+                <div className="flex gap-3">
+                  <div className="relative flex-1">
+                    <select
+                      value={formData.trabajador_subida_id}
+                      onChange={(e) => handleInputChange('trabajador_subida_id', e.target.value)}
+                      className={[
+                        "w-full px-4 py-3 pr-10 border rounded-xl text-sm font-medium appearance-none cursor-pointer",
+                        "shadow-sm transition-all duration-200",
+                        isAutoFilled('trabajador_subida_id') && !isModifiedFromAuto('trabajador_subida_id')
+                          ? "border-green-400 bg-green-50 text-green-900"
+                          : isModifiedFromAuto('trabajador_subida_id')
+                          ? "border-blue-400 bg-blue-50 text-blue-900"
+                          : "border-gray-300 bg-white hover:border-[#8E8D29]",
+                        "focus:ring-2 focus:ring-[#D17C22]/30 focus:border-[#D17C22] focus:shadow-md"
+                      ].join(' ')}
+                    >
+                      <option value="" className="text-gray-500">👤 Seleccionar trabajador...</option>
+                      {trabajadores.map((t) => (
+                        <option key={t.id} value={t.id} className="font-medium">{t.nombre}</option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                  {isAutoFilled('trabajador_subida_id') && (
+                    <button
+                      type="button"
+                      onClick={() => resetAutoField('trabajador_subida_id')}
+                      className="px-4 py-3 text-xs text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+                      title="Resetear al valor auto-detectado"
+                    >
+                      <RotateCcw size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
               {/* Complejidad */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -545,8 +688,8 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
                     onChange={(e) => handleInputChange('complejidad', e.target.value)}
                     className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-xl text-sm font-medium
                              bg-white shadow-sm transition-all duration-200 appearance-none cursor-pointer
-                             focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:shadow-md
-                             hover:border-gray-400"
+                             focus:ring-2 focus:ring-[#D17C22]/30 focus:border-[#D17C22] focus:shadow-md
+                             hover:border-[#8E8D29]"
                     required
                   >
                     <option value="" className="text-gray-500">📊 Seleccionar complejidad...</option>
@@ -565,7 +708,7 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
           </div>
 
           {/* Fechas y Plazos */}
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 space-y-6 border border-green-100">
+          <div className="bg-green-50 rounded-xl p-6 space-y-6 border border-green-200">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
                 <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -580,9 +723,14 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Fecha de Redacción
-                  {isAutoFilled('fecha_redaccion') && (
-                    <span className="ml-2 text-xs text-green-600 inline-flex items-center gap-1 font-medium">
+                  {isAutoFilled('fecha_redaccion') && !isModifiedFromAuto('fecha_redaccion') && (
+                    <span className="ml-2 text-xs text-[#8E8D29] inline-flex items-center gap-1 font-medium">
                       <CheckCircle size={12} /> Auto-detectado
+                    </span>
+                  )}
+                  {isModifiedFromAuto('fecha_redaccion') && (
+                    <span className="ml-2 text-xs text-blue-600 inline-flex items-center gap-1 font-medium">
+                      <Eye size={12} /> Modificado
                     </span>
                   )}
                 </label>
@@ -593,10 +741,12 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
                     onChange={(e) => handleInputChange('fecha_redaccion', e.target.value)}
                     className={[
                       "flex-1 px-4 py-3 border rounded-xl text-sm font-medium shadow-sm transition-all duration-200",
-                      isAutoFilled('fecha_redaccion')
-                        ? "border-green-400 bg-gradient-to-r from-green-50 to-emerald-50 text-green-900"
-                        : "border-gray-300 bg-white hover:border-gray-400",
-                      "focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:shadow-md"
+                      isAutoFilled('fecha_redaccion') && !isModifiedFromAuto('fecha_redaccion')
+                        ? "border-green-400 bg-green-50 text-green-900"
+                        : isModifiedFromAuto('fecha_redaccion')
+                        ? "border-blue-400 bg-blue-50 text-blue-900"
+                        : "border-gray-300 bg-white hover:border-[#8E8D29]",
+                      "focus:ring-2 focus:ring-[#D17C22]/30 focus:border-[#D17C22] focus:shadow-md"
                     ].join(' ')}
                     required
                   />
@@ -617,14 +767,16 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Fecha Subida Web
+                  <span className="ml-2 text-xs text-gray-700 inline-flex items-center gap-1 font-medium opacity-0">
+                    <CheckCircle size={12} /> Auto-completado
+                  </span>
                 </label>
                 <input
                   type="date"
                   value={formData.fecha_subida_web}
                   onChange={(e) => handleInputChange('fecha_subida_web', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm font-medium bg-white shadow-sm
-                           focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:shadow-md
-                           hover:border-gray-400 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm font-medium shadow-sm transition-all duration-200
+                           bg-white hover:border-[#8E8D29] focus:ring-2 focus:ring-[#D17C22]/30 focus:border-[#D17C22] focus:shadow-md"
                   required
                 />
               </div>
@@ -633,9 +785,14 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Fecha de Vencimiento
-                  {isAutoFilled('vencimiento') && (
-                    <span className="ml-2 text-xs text-green-600 inline-flex items-center gap-1 font-medium">
+                  {isAutoFilled('vencimiento') && !isModifiedFromAuto('vencimiento') && (
+                    <span className="ml-2 text-xs text-[#8E8D29] inline-flex items-center gap-1 font-medium">
                       <CheckCircle size={12} /> Auto-completado
+                    </span>
+                  )}
+                  {isModifiedFromAuto('vencimiento') && (
+                    <span className="ml-2 text-xs text-blue-600 inline-flex items-center gap-1 font-medium">
+                      <Eye size={12} /> Modificado
                     </span>
                   )}
                 </label>
@@ -646,10 +803,12 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
                     onChange={(e) => handleInputChange('vencimiento', e.target.value)}
                     className={[
                       "flex-1 px-4 py-3 border rounded-xl text-sm font-medium shadow-sm transition-all duration-200",
-                      isAutoFilled('vencimiento')
-                        ? "border-green-400 bg-gradient-to-r from-green-50 to-emerald-50 text-green-900"
-                        : "border-gray-300 bg-white hover:border-gray-400",
-                      "focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 focus:shadow-md"
+                      isAutoFilled('vencimiento') && !isModifiedFromAuto('vencimiento')
+                        ? "border-green-400 bg-green-50 text-green-900"
+                        : isModifiedFromAuto('vencimiento')
+                        ? "border-blue-400 bg-blue-50 text-blue-900"
+                        : "border-gray-300 bg-white hover:border-[#8E8D29]",
+                      "focus:ring-2 focus:ring-[#D17C22]/30 focus:border-[#D17C22] focus:shadow-md"
                     ].join(' ')}
                     required
                   />
@@ -668,12 +827,73 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
             </div>
           </div>
 
+          {/* Etiquetas de Destaque */}
+          <div className="bg-yellow-50 rounded-xl p-6 space-y-6 border border-yellow-200">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-yellow-600 rounded-lg flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Etiquetas de Destaque</h3>
+              <span className="text-sm text-gray-500 font-medium">(Opcional)</span>
+            </div>
+            
+            <div className="text-sm text-gray-600 mb-4">
+              Estas etiquetas se asignan manualmente para destacar ciertos tipos de fichas:
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Destaque Principal - Nueva */}
+              <div className="flex items-start space-x-3">
+                <div className="flex items-center h-5">
+                  <input
+                    id="destaque_nueva"
+                    type="checkbox"
+                    checked={formData.destaque_principal}
+                    onChange={(e) => handleInputChange('destaque_principal', e.target.checked)}
+                    className="h-5 w-5 text-[#8E8D29] border-gray-300 rounded focus:ring-[#8E8D29] focus:ring-2 transition-all duration-200"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <label htmlFor="destaque_nueva" className="text-sm font-semibold text-gray-900 cursor-pointer">
+                    🆕 Nueva - Primera vez
+                  </label>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Marcar cuando es la primera vez que se introduce esta ayuda en el sistema
+                  </p>
+                </div>
+              </div>
+
+              {/* Destaque Secundario - Para Publicitar */}
+              <div className="flex items-start space-x-3">
+                <div className="flex items-center h-5">
+                  <input
+                    id="destaque_publicitar"
+                    type="checkbox"
+                    checked={formData.destaque_secundario}
+                    onChange={(e) => handleInputChange('destaque_secundario', e.target.checked)}
+                    className="h-5 w-5 text-[#D17C22] border-gray-300 rounded focus:ring-[#D17C22] focus:ring-2 transition-all duration-200"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <label htmlFor="destaque_publicitar" className="text-sm font-semibold text-gray-900 cursor-pointer">
+                    📢 Para Publicitar - Importante
+                  </label>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Marcar cuando se considera importante para publicitar o destacar
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Botones */}
           <div className="flex justify-end space-x-3 pt-6 border-t">
             <button
               type="button"
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg
-                       hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/20"
+                       hover:bg-gray-50 focus:ring-2 focus:ring-[#D17C22]/20"
             >
               Cancelar
             </button>
@@ -681,7 +901,7 @@ export default function NuevaFichaForm({ onSubmit, isLoading }: NuevaFichaFormPr
               type="submit"
               disabled={isLoading}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white 
-                       bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500/20
+                       bg-[#D17C22] rounded-lg hover:bg-[#D17C22]/90 focus:ring-2 focus:ring-[#D17C22]/20
                        disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {isLoading ? (

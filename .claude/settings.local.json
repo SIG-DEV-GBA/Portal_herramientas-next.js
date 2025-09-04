@@ -9,7 +9,11 @@
       "Bash(rmdir:*)",
       "Bash(rm:*)",
       "Bash(npm install:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(curl:*)",
+      "Bash(cat:*)",
+      "Bash(sed:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

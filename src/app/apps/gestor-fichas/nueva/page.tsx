@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import AppHeader from "@/app/apps/gestor-fichas/components/layout/AppHeader";
 import NuevaFichaForm from "@/app/apps/gestor-fichas/components/forms/NuevaFichaForm";
 import { useNotification } from "@/hooks/useNotification";
+import { NotificationModal } from "@/components/ui/Modal";
 
 export default function NuevaFichaPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { showSuccess, showError } = useNotification();
+  const { notification, showSuccess, showError, closeNotification } = useNotification();
 
   const handleSubmit = async (formData: Record<string, any>) => {
     setIsLoading(true);
@@ -33,14 +34,15 @@ export default function NuevaFichaPage() {
           
           trabajador_id: formData.trabajador_id ? Number(formData.trabajador_id) : null,
           trabajador_subida_id: formData.trabajador_subida_id ? Number(formData.trabajador_subida_id) : null,
+          redactor_id: formData.redactor_id ? Number(formData.redactor_id) : null,
           
           tramite_tipo: formData.tramite_tipo || null,
           complejidad: formData.complejidad || null,
           
           frase_publicitaria: formData.frase_publicitaria || null,
           texto_divulgacion: formData.texto_divulgacion || null,
-          destaque_principal: formData.destaque_principal || null,
-          destaque_secundario: formData.destaque_secundario || null,
+          destaque_principal: formData.destaque_principal ? 'nueva' : null,
+          destaque_secundario: formData.destaque_secundario ? 'para_publicitar' : null,
           
           // Fechas
           fecha_redaccion: formData.fecha_redaccion || null,
@@ -68,20 +70,26 @@ export default function NuevaFichaPage() {
       const nuevaFicha = await response.json();
       
       showSuccess(
-        '¡Ficha creada!',
-        `La ficha "${nuevaFicha.nombre_ficha}" se ha creado correctamente.`
+        '¡Ficha creada exitosamente!',
+        `La ficha "${nuevaFicha.nombre_ficha}" se ha guardado correctamente. Redirigiendo al dashboard...`
       );
 
-      // Redirigir al dashboard o a la ficha creada
-      router.push('/apps/gestor-fichas/dashboard');
+      // Auto-redirección después de 3 segundos
+      setTimeout(() => {
+        router.push('/apps/gestor-fichas/dashboard');
+      }, 3000);
       
     } catch (error: unknown) {
       console.error('Error creating ficha:', error);
+      const errorMessage = (error instanceof Error ? error.message : 'Error desconocido') || 'No se pudo crear la ficha. Inténtalo de nuevo.';
+      
       showError(
-        'Error',
-        (error instanceof Error ? error.message : 'Error desconocido') || 'No se pudo crear la ficha. Inténtalo de nuevo.'
+        'Error al crear ficha',
+        errorMessage
       );
-      throw error; // Re-throw para que el formulario maneje el estado
+      
+      // No re-lanzar el error para evitar duplicate error handling
+      // El modal de error ya muestra la información al usuario
     } finally {
       setIsLoading(false);
     }
@@ -107,6 +115,16 @@ export default function NuevaFichaPage() {
           isLoading={isLoading}
         />
       </div>
+
+      {/* Notification Modal */}
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={closeNotification}
+        type={notification.type}
+        title={notification.title}
+        message={notification.message}
+        autoClose={notification.type === 'success' ? 3000 : undefined}
+      />
     </div>
   );
 }

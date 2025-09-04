@@ -25,7 +25,6 @@ const selectList = {
   trabajador_subida_id: true,
   tramite_tipo: true,
   complejidad: true,
-  existe_frase: true,
   enlace_base_id: true,
   enlace_seg_override: true,
   frase_publicitaria: true,
@@ -140,10 +139,6 @@ export async function GET(req: NextRequest) {
       where.OR = provinciaFilter.OR;
     }
   }
-
-  const existe_frase = sp.get("existe_frase");
-  if (existe_frase === "true") where.existe_frase = true;
-  if (existe_frase === "false") where.existe_frase = false;
 
   const complejidad = sp.get("complejidad") as "baja" | "media" | "alta" | null;
   if (complejidad) where.complejidad = complejidad;
@@ -294,6 +289,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "El ámbito territorial es obligatorio y debe ser válido" }, { status: 400 });
     }
 
+    // Verificar que el ID de ficha subida no existe ya
+    const fichaExistente = await prisma.fichas.findFirst({
+      where: { id_ficha_subida: data.id_ficha_subida.trim() },
+      select: { id: true, nombre_ficha: true }
+    });
+
+    if (fichaExistente) {
+      return NextResponse.json({ 
+        error: `El ID "${data.id_ficha_subida.trim()}" ya existe en el sistema. Por favor, usa un ID único diferente.`, 
+        details: `Este ID ya está en uso por la ficha: "${fichaExistente.nombre_ficha}"` 
+      }, { status: 409 });
+    }
+
     // Preparar datos para inserción
     const fichaData: Record<string, any> = {
       id_ficha_subida: data.id_ficha_subida, // Prisma manejará la conversión a Decimal
@@ -336,11 +344,11 @@ export async function POST(req: NextRequest) {
     if (data.ambito_municipal?.trim()) {
       fichaData.ambito_municipal = data.ambito_municipal.trim();
     }
-    if (data.destaque_principal?.trim()) {
-      fichaData.destaque_principal = data.destaque_principal.trim();
+    if (data.destaque_principal === true) {
+      fichaData.destaque_principal = 'nueva';
     }
-    if (data.destaque_secundario?.trim()) {
-      fichaData.destaque_secundario = data.destaque_secundario.trim();
+    if (data.destaque_secundario === true) {
+      fichaData.destaque_secundario = 'para_publicitar';
     }
     if (data.enlace_base_id) {
       fichaData.enlace_base_id = data.enlace_base_id;
@@ -399,9 +407,16 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     console.error("Error creating ficha:", error);
     
-    // Error de duplicado
+    // Error de duplicado (constraint única)
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
-      return NextResponse.json({ error: "Ya existe una ficha con ese ID" }, { status: 409 });
+      const meta = (error as any).meta;
+      if (meta?.target?.includes('uq_fichas_id_ficha_subida')) {
+        return NextResponse.json({ 
+          error: "Ya existe una ficha con ese ID", 
+          details: "El ID de ficha subida debe ser único en el sistema" 
+        }, { status: 409 });
+      }
+      return NextResponse.json({ error: "Violación de constraint única en la base de datos" }, { status: 409 });
     }
     
     // Error de validación de Prisma

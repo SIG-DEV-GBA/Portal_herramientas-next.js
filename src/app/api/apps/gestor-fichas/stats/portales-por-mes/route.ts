@@ -36,6 +36,23 @@ export async function GET(req: NextRequest) {
         desde = new Date(Date.UTC(anio, 0, 1, 0, 0, 0));
         hasta = new Date(Date.UTC(anio + 1, 0, 1, 0, 0, 0)); // exclusivo
       }
+    } else {
+      // Sin año específico - obtener rango completo de la BD
+      const rangeResult = await prisma.$queryRaw<Array<{min_date: Date, max_date: Date}>>`
+        SELECT 
+          MIN(created_at) as min_date,
+          MAX(created_at) as max_date 
+        FROM fichas
+      `;
+      
+      if (rangeResult.length > 0 && rangeResult[0].min_date && rangeResult[0].max_date) {
+        desde = rangeResult[0].min_date;
+        hasta = new Date(rangeResult[0].max_date.getTime() + 24 * 60 * 60 * 1000); // +1 día para inclusivo
+      } else {
+        // Fallback si no hay datos
+        desde = new Date(Date.UTC(2020, 0, 1, 0, 0, 0));
+        hasta = new Date(Date.UTC(2030, 0, 1, 0, 0, 0));
+      }
     }
 
     if (created_desde || created_hasta) {
@@ -69,11 +86,16 @@ export async function GET(req: NextRequest) {
     const provincia_id = toInt(sp.get("provincia_id"));
     const trabajador_id = toInt(sp.get("trabajador_id"));
     const trabajador_subida_id = toInt(sp.get("trabajador_subida_id"));
-    const existe_frase = parseBool(sp.get("existe_frase"));
 
     // WHERE del conteo
     const whereParts: string[] = ["f.created_at >= ?", "f.created_at < ?"]; // < hasta (exclusivo)
     const params: Param[] = [desde, hasta];
+    
+    // Si solo se filtró por mes (sin año), agregar filtro por mes
+    if (!anio && mesNum && mesNum >= 1 && mesNum <= 12) {
+      whereParts.push("MONTH(f.created_at) = ?");
+      params.push(mesNum);
+    }
 
     if (q) {
       whereParts.push(
@@ -84,7 +106,6 @@ export async function GET(req: NextRequest) {
     if (ambito)               { whereParts.push("f.ambito_nivel = ?"); params.push(ambito); }
     if (tramite_tipo)         { whereParts.push("f.tramite_tipo = ?"); params.push(tramite_tipo); }
     if (complejidad)          { whereParts.push("f.complejidad = ?"); params.push(complejidad); }
-    if (typeof existe_frase === "boolean") { whereParts.push("f.existe_frase = ?"); params.push(existe_frase ? 1 : 0); }
     if (ccaa_id)              { whereParts.push("f.ambito_ccaa_id = ?"); params.push(ccaa_id); }
     if (provincia_id) {
       const { getProvinciaInclusiveWhere } = await import('@/lib/utils/provincia-filter');
@@ -109,7 +130,7 @@ export async function GET(req: NextRequest) {
       ),
       conteos AS (
         SELECT
-          DATE_FORMAT(f.created_at, '%Y-%m') AS month,
+          ${!anio && mesNum ? 'MONTH(f.created_at)' : 'DATE_FORMAT(f.created_at, \'%Y-%m\')'} AS month,
           fp.portal_id,
           COUNT(DISTINCT f.id) AS total
         FROM fichas f
@@ -118,7 +139,7 @@ export async function GET(req: NextRequest) {
         GROUP BY month, fp.portal_id
       )
       SELECT
-        DATE_FORMAT(months.m, '%Y-%m') AS month,
+        ${!anio && mesNum ? 'MONTH(months.m)' : 'DATE_FORMAT(months.m, \'%Y-%m\')'} AS month,
         p.id   AS portal_id,
         p.slug AS portal_slug,
         p.nombre AS portal_nombre,
@@ -127,7 +148,7 @@ export async function GET(req: NextRequest) {
       CROSS JOIN portales p
       LEFT JOIN conteos c
         ON c.portal_id = p.id
-       AND c.month = DATE_FORMAT(months.m, '%Y-%m')
+       AND c.month = ${!anio && mesNum ? 'MONTH(months.m)' : 'DATE_FORMAT(months.m, \'%Y-%m\')'}
       ORDER BY month ASC,
         CASE p.slug
           WHEN 'familia' THEN 1

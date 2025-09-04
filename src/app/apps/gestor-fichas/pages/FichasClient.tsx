@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, FileText, Download } from "lucide-react";
 
 // Layout
 import AppHeader from "@/app/apps/gestor-fichas/components/layout/AppHeader";
@@ -27,6 +27,9 @@ import { PortalesManager } from "@/components/management/PortalesManager";
 import { TematicasManager } from "@/components/management/TematicasManager";
 import { TrabajadoresManager } from "@/components/management/TrabajadoresManager";
 
+// PDF
+import PDFConfigModal, { type PDFConfig } from "@/app/apps/gestor-fichas/components/pdf/PDFConfigModal";
+
 // Tipos / Utils
 import type { Filters } from "@/app/apps/gestor-fichas/lib/types";
 import { asAmbito, asTramite, asComplejidad, monthName } from "@/app/apps/gestor-fichas/lib/utils";
@@ -49,10 +52,12 @@ function useQueryState() {
     tematica_id: sp.get("tematica_id") ?? "",
     trabajador_id: sp.get("trabajador_id") ?? "",
     trabajador_subida_id: sp.get("trabajador_subida_id") ?? "",
-    anio: sp.get("anio") ?? String(new Date().getFullYear()),
+    anio: sp.get("anio") ?? "",
     mes: sp.get("mes") ?? "",
     created_desde: sp.get("created_desde") ?? "",
     created_hasta: sp.get("created_hasta") ?? "",
+    destaque_principal: sp.get("destaque_principal") ?? "",
+    destaque_secundario: sp.get("destaque_secundario") ?? "",
     take: sp.get("take") ?? "20",
     page: sp.get("page") ?? "1",
   }));
@@ -95,10 +100,12 @@ function useQueryState() {
       tematica_id: "",
       trabajador_id: "",
       trabajador_subida_id: "",
-      anio: String(new Date().getFullYear()),
+      anio: "",
       mes: "",
       created_desde: "",
       created_hasta: "",
+      destaque_principal: "",
+      destaque_secundario: "",
       take: "20",
       page: "1",
     });
@@ -112,6 +119,49 @@ function useQueryState() {
 export default function FichasClient() {
   const { filters, set, reset } = useQueryState();
   const [activeMainTab, setActiveMainTab] = useState<'analisis' | 'datos' | 'portales' | 'tematicas' | 'trabajadores'>('analisis');
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [totalRecords, setTotalRecords] = useState(0);
+
+  // Function to fetch total records for PDF modal
+  const fetchTotalRecords = async () => {
+    try {
+      // Use the same filter construction logic as the charts
+      const params = new URLSearchParams();
+      if (filters.anio) params.set("anio", filters.anio);
+      if (filters.mes) params.set("mes", filters.mes);
+      if (filters.q) params.set("q", filters.q);
+      if (filters.ambito) params.set("ambito", filters.ambito);
+      if (filters.tramite_tipo) params.set("tramite_tipo", filters.tramite_tipo);
+      if (filters.complejidad) params.set("complejidad", filters.complejidad);
+      if (filters.ccaa_id) params.set("ccaa_id", filters.ccaa_id);
+      if (filters.provincia_id) params.set("provincia_id", filters.provincia_id);
+      if (filters.provincia_principal) params.set("provincia_principal", filters.provincia_principal);
+      if (filters.trabajador_id) params.set("trabajador_id", filters.trabajador_id);
+      if (filters.trabajador_subida_id) params.set("trabajador_subida_id", filters.trabajador_subida_id);
+      if (filters.tematica_id) params.set("tematica_id", filters.tematica_id);
+      if (filters.created_desde) params.set("created_desde", filters.created_desde);
+      if (filters.created_hasta) params.set("created_hasta", filters.created_hasta);
+      if (filters.destaque_principal) params.set("destaque_principal", filters.destaque_principal);
+      if (filters.destaque_secundario) params.set("destaque_secundario", filters.destaque_secundario);
+      
+      params.set('take', '1'); // We only need the total count
+      params.set('page', '1');
+      params.set('withCount', 'true'); // IMPORTANTE: Para que devuelva el total
+      
+      const response = await fetch(`/api/apps/gestor-fichas/fichas?${params.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Fetched total records:', data.total);
+        setTotalRecords(data.total || 0);
+      } else {
+        console.error('Failed to fetch total records:', response.status, response.statusText);
+        setTotalRecords(0);
+      }
+    } catch (error) {
+      console.error('Error fetching total records:', error);
+      setTotalRecords(0);
+    }
+  };
 
   // Tabs de gráficas (una visible a la vez -> menos scroll)
   const charts: Tab[] = [
@@ -121,6 +171,47 @@ export default function FichasClient() {
     { key: "tramite-online", label: "Trámite online",          node: <TramiteOnlineChart        filters={filters} /> },
     { key: "tematicas",      label: "Temáticas (mes / año)",   node: <TematicasDistribucionChart filters={filters} /> },
   ];
+
+  const handleGeneratePDF = async (config: PDFConfig) => {
+    try {
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && String(v).length > 0) {
+          params.set(k, String(v));
+        }
+      });
+      
+      // Add PDF config
+      params.set('config', JSON.stringify(config));
+      
+      const response = await fetch(`/api/apps/gestor-fichas/generate-pdf?${params.toString()}`, {
+        method: 'GET',
+        credentials: 'same-origin', // Include cookies for authentication
+        headers: {
+          'Accept': 'application/pdf',
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('PDF generation failed:', response.status, errorText);
+        throw new Error(`Error generando PDF: ${response.status} ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `informe-fichas-${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      // Here you could add a notification system
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -197,16 +288,35 @@ export default function FichasClient() {
             </button>
             </nav>
             
-            {/* Botón Nueva Ficha */}
-            <Link
-              href="/apps/gestor-fichas/nueva"
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white 
-                       bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500/20
-                       transition-colors duration-200"
-            >
-              <Plus size={16} />
-              Nueva Ficha
-            </Link>
+            {/* Botones de acción */}
+            <div className="flex items-center gap-3">
+              {/* Botón Generar PDF - Visible en todas las pestañas */}
+              <button
+                onClick={async () => {
+                  await fetchTotalRecords();
+                  setPdfModalOpen(true);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#D17C22] 
+                         bg-white border border-[#D17C22] rounded-lg hover:bg-[#D17C22] hover:text-white
+                         focus:ring-2 focus:ring-[#D17C22]/20 transition-colors duration-200"
+              >
+                <Download size={16} />
+                Generar PDF
+              </button>
+              
+              {/* Botón Nueva Ficha - Solo visible en la pestaña "Datos y Fichas" */}
+              {activeMainTab === 'datos' && (
+                <Link
+                  href="/apps/gestor-fichas/nueva"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white 
+                           bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500/20
+                           transition-colors duration-200"
+                >
+                  <Plus size={16} />
+                  Nueva Ficha
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* Tab Content */}
@@ -219,7 +329,11 @@ export default function FichasClient() {
 
             {activeMainTab === 'datos' && (
               <div className="-m-6">
-                <FichasTableModern filters={filters} onChange={set} />
+                <FichasTableModern 
+                  filters={filters} 
+                  onChange={set} 
+                  onRecordCountChange={setTotalRecords}
+                />
               </div>
             )}
 
@@ -229,6 +343,15 @@ export default function FichasClient() {
           </div>
         </div>
       </div>
+
+      {/* PDF Configuration Modal */}
+      <PDFConfigModal
+        isOpen={pdfModalOpen}
+        onClose={() => setPdfModalOpen(false)}
+        filters={filters}
+        onGeneratePDF={handleGeneratePDF}
+        totalRecords={totalRecords}
+      />
     </div>
   );
 }

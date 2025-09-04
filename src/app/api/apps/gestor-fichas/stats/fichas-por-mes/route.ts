@@ -32,6 +32,23 @@ export async function GET(req: NextRequest) {
         desde = new Date(Date.UTC(anio, 0, 1, 0, 0, 0));
         hasta = new Date(Date.UTC(anio + 1, 0, 1, 0, 0, 0)); // exclusivo
       }
+    } else {
+      // Sin año específico - obtener rango completo de la BD
+      const rangeResult = await prisma.$queryRaw<Array<{min_date: Date, max_date: Date}>>`
+        SELECT 
+          MIN(created_at) as min_date,
+          MAX(created_at) as max_date 
+        FROM fichas
+      `;
+      
+      if (rangeResult.length > 0 && rangeResult[0].min_date && rangeResult[0].max_date) {
+        desde = rangeResult[0].min_date;
+        hasta = new Date(rangeResult[0].max_date.getTime() + 24 * 60 * 60 * 1000); // +1 día para inclusivo
+      } else {
+        // Fallback si no hay datos
+        desde = new Date(Date.UTC(2020, 0, 1, 0, 0, 0));
+        hasta = new Date(Date.UTC(2030, 0, 1, 0, 0, 0));
+      }
     }
 
     if (created_desde || created_hasta) {
@@ -64,7 +81,6 @@ export async function GET(req: NextRequest) {
     const provincia_principal = toInt(sp.get("provincia_principal"));
     const trabajador_id = toInt(sp.get("trabajador_id"));
     const trabajador_subida_id = toInt(sp.get("trabajador_subida_id"));
-    const existe_frase = parseBool(sp.get("existe_frase"));
 
     // Filtro opcional por lista de portales => considerar solo fichas que tengan alguno de esos portales
     const portalsRaw = sp.get("portales");
@@ -78,6 +94,12 @@ export async function GET(req: NextRequest) {
     // -------- WHERE para fichas
     const whereParts: string[] = ["f.created_at >= ?", "f.created_at < ?"]; // < hasta (exclusivo)
     const params: Param[] = [desde, hasta];
+    
+    // Si solo se filtró por mes (sin año), agregar filtro por mes
+    if (!anio && mesNum && mesNum >= 1 && mesNum <= 12) {
+      whereParts.push("MONTH(f.created_at) = ?");
+      params.push(mesNum);
+    }
 
     if (q) {
       whereParts.push(
@@ -89,7 +111,6 @@ export async function GET(req: NextRequest) {
     if (tramite_tipo)         { whereParts.push("f.tramite_tipo = ?"); params.push(tramite_tipo); }
     if (complejidad)          { whereParts.push("f.complejidad = ?"); params.push(complejidad); }
     if (tematica_id)          { whereParts.push("f.tematica_id = ?"); params.push(tematica_id); }
-    if (typeof existe_frase === "boolean") { whereParts.push("f.existe_frase = ?"); params.push(existe_frase ? 1 : 0); }
     if (ccaa_id)              { whereParts.push("f.ambito_ccaa_id = ?"); params.push(ccaa_id); }
     if (provincia_id) { whereParts.push("f.ambito_provincia_id = ?"); params.push(provincia_id); }
     if (provincia_principal) {
@@ -126,7 +147,7 @@ export async function GET(req: NextRequest) {
       fp_agg AS (
         SELECT
           ff.id AS ficha_id,
-          DATE_FORMAT(ff.created_at, '%Y-%m') AS month,
+          ${!anio && mesNum ? 'MONTH(ff.created_at)' : 'DATE_FORMAT(ff.created_at, \'%Y-%m\')'} AS month,
           COUNT(DISTINCT fp.portal_id) AS n_portales,
           -- slug arbitrario si n_portales = 1 (válido para "exclusivas")
           MIN(p.slug) AS portal_unico_slug
@@ -147,7 +168,7 @@ export async function GET(req: NextRequest) {
         COALESCE(SUM(CASE WHEN a.n_portales = 1 AND a.portal_unico_slug = 'salud' THEN 1 ELSE 0 END), 0)          AS excl_salud
       FROM months
       LEFT JOIN fp_agg a
-        ON a.month = DATE_FORMAT(months.m, '%Y-%m')
+        ON ${!anio && mesNum ? 'a.month = MONTH(months.m)' : 'a.month = DATE_FORMAT(months.m, \'%Y-%m\')'}
       GROUP BY mes_index
       ORDER BY mes_index ASC;
     `;

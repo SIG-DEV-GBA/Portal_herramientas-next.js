@@ -51,6 +51,7 @@ interface NotificationModalProps {
   type: 'success' | 'error' | 'info';
   title: string;
   message: string;
+  autoClose?: number; // Auto-close after X milliseconds
 }
 
 export function NotificationModal({ 
@@ -58,8 +59,39 @@ export function NotificationModal({
   onClose, 
   type, 
   title, 
-  message 
+  message,
+  autoClose
 }: NotificationModalProps) {
+  const [countdown, setCountdown] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    if (!isOpen || !autoClose) return;
+
+    const seconds = Math.ceil(autoClose / 1000);
+    setCountdown(seconds);
+
+    const countdownInterval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev && prev <= 1) {
+          return null;
+        }
+        return prev ? prev - 1 : null;
+      });
+    }, 1000);
+
+    const autoCloseTimeout = setTimeout(() => {
+      if (isOpen) {
+        onClose();
+      }
+    }, autoClose);
+
+    return () => {
+      clearInterval(countdownInterval);
+      clearTimeout(autoCloseTimeout);
+      setCountdown(null);
+    };
+  }, [isOpen, autoClose]);
+
   const getIcon = () => {
     switch (type) {
       case 'success':
@@ -133,7 +165,7 @@ export function NotificationModal({
           onClick={onClose}
           className={`w-full px-4 py-2 rounded-lg text-white font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${colors.button}`}
         >
-          Entendido
+          {countdown ? `Entendido (${countdown}s)` : 'Entendido'}
         </button>
       </div>
     </Modal>

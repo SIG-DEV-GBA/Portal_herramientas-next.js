@@ -14,7 +14,8 @@ import {
   Search,
   Filter,
   ArrowUpDown,
-  ExternalLink
+  ExternalLink,
+  Trash2
 } from "lucide-react";
 
 // Types
@@ -24,13 +25,15 @@ import { PAGE_SIZES, fmtDate, pickFichasFilters } from "@/app/apps/gestor-fichas
 
 // Components
 import FichaDetailModal from "./FichaDetailModal";
+import { ConfirmModal, NotificationModal } from "@/components/ui/Modal";
 
 interface Props {
   filters: Filters;
   onChange: (f: Partial<Filters>) => void;
+  onRecordCountChange?: (count: number) => void;
 }
 
-export default function FichasTableModern({ filters, onChange }: Props) {
+export default function FichasTableModern({ filters, onChange, onRecordCountChange }: Props) {
   const take = Math.max(1, Number(filters.take || 20));
   const page = Math.max(1, Number(filters.page || 1));
   const [data, setData] = useState<ApiList>({ items: [], total: 0 });
@@ -38,6 +41,10 @@ export default function FichasTableModern({ filters, onChange }: Props) {
   const [selectedFicha, setSelectedFicha] = useState<Ficha | null>(null);
   const [sortField, setSortField] = useState<'created_at' | 'nombre_ficha' | 'vencimiento'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [fichaToDelete, setFichaToDelete] = useState<Ficha | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const [deletedFichaName, setDeletedFichaName] = useState("");
 
   const query = useMemo(
     () => ({
@@ -55,7 +62,12 @@ export default function FichasTableModern({ filters, onChange }: Props) {
     let cancel = false;
     setLoading(true);
     apiJSON<ApiList>("/api/apps/gestor-fichas/fichas", query)
-      .then((d) => !cancel && setData(d))
+      .then((d) => {
+        if (!cancel) {
+          setData(d);
+          onRecordCountChange?.(d.total);
+        }
+      })
       .finally(() => !cancel && setLoading(false));
     return () => {
       cancel = true;
@@ -75,50 +87,95 @@ export default function FichasTableModern({ filters, onChange }: Props) {
     }
   };
 
+  const handleDeleteFicha = async () => {
+    if (!fichaToDelete) return;
+
+    const fichaName = fichaToDelete.nombre_ficha;
+    setIsDeleting(true);
+    
+    try {
+      const response = await fetch(`/api/apps/gestor-fichas/fichas/${fichaToDelete.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Error al eliminar la ficha';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          errorMessage = `Error del servidor (${response.status})`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Mostrar notificación de éxito
+      setDeletedFichaName(fichaName);
+      setShowDeleteSuccess(true);
+
+      // Recargar datos después de eliminar
+      const newData = await apiJSON<ApiList>("/api/apps/gestor-fichas/fichas", query);
+      setData(newData);
+      onRecordCountChange?.(newData.total);
+      
+      // Si no quedan elementos en la página actual y no es la primera página, ir a la anterior
+      if (newData.items.length === 0 && page > 1) {
+        onChange({ page: String(page - 1) });
+      }
+
+    } catch (error) {
+      console.error('Error deleting ficha:', error);
+      alert(error instanceof Error ? error.message : 'Error desconocido al eliminar la ficha');
+    } finally {
+      setIsDeleting(false);
+      setFichaToDelete(null);
+    }
+  };
+
   const getAmbitoStyle = (ambito: string) => {
     const styles = {
-      'UE': 'bg-gradient-to-r from-blue-50 to-white text-blue-700 border border-blue-200/60',
-      'ESTADO': 'bg-gradient-to-r from-orange-50 to-white text-[#D17C22] border border-orange-200/60',
-      'CCAA': 'bg-gradient-to-r from-green-50 to-white text-[#8E8D29] border border-green-200/60',
-      'PROVINCIA': 'bg-gradient-to-r from-amber-50 to-white text-amber-700 border border-amber-200/60'
+      'UE': 'bg-blue-50 text-blue-700 border border-blue-200',
+      'ESTADO': 'bg-orange-50 text-[#D17C22] border border-[#D17C22]/30',
+      'CCAA': 'bg-green-50 text-[#8E8D29] border border-[#8E8D29]/30',
+      'PROVINCIA': 'bg-amber-50 text-amber-700 border border-amber-200'
     };
-    return styles[ambito as keyof typeof styles] || 'bg-gradient-to-r from-gray-50 to-white text-gray-700 border border-gray-200/60';
+    return styles[ambito as keyof typeof styles] || 'bg-gray-50 text-gray-700 border border-gray-200';
   };
 
   const getTramiteStyle = (tramite: string) => {
     const styles = {
-      'si': 'bg-gradient-to-r from-[#8E8D29]/10 to-white text-[#8E8D29] border border-[#8E8D29]/30',
-      'no': 'bg-gradient-to-r from-[#D17C22]/10 to-white text-[#D17C22] border border-[#D17C22]/30',
-      'directo': 'bg-gradient-to-r from-indigo-50 to-white text-indigo-700 border border-indigo-200/60'
+      'si': 'bg-[#8E8D29]/10 text-[#8E8D29] border border-[#8E8D29]/30',
+      'no': 'bg-[#D17C22]/10 text-[#D17C22] border border-[#D17C22]/30',
+      'directo': 'bg-indigo-50 text-indigo-700 border border-indigo-200'
     };
-    return styles[tramite as keyof typeof styles] || 'bg-gradient-to-r from-gray-50 to-white text-gray-700 border border-gray-200/60';
+    return styles[tramite as keyof typeof styles] || 'bg-gray-50 text-gray-700 border border-gray-200';
   };
 
   const getComplejidadStyle = (complejidad: string) => {
     const styles = {
-      'baja': 'bg-gradient-to-r from-[#8E8D29]/10 to-white text-[#8E8D29] border border-[#8E8D29]/30',
-      'media': 'bg-gradient-to-r from-amber-50 to-white text-amber-700 border border-amber-200/60',
-      'alta': 'bg-gradient-to-r from-[#D17C22]/10 to-white text-[#D17C22] border border-[#D17C22]/30'
+      'baja': 'bg-[#8E8D29]/10 text-[#8E8D29] border border-[#8E8D29]/30',
+      'media': 'bg-amber-50 text-amber-700 border border-amber-200',
+      'alta': 'bg-[#D17C22]/10 text-[#D17C22] border border-[#D17C22]/30'
     };
-    return styles[complejidad as keyof typeof styles] || 'bg-gradient-to-r from-gray-50 to-white text-gray-700 border border-gray-200/60';
+    return styles[complejidad as keyof typeof styles] || 'bg-gray-50 text-gray-700 border border-gray-200';
   };
 
   return (
     <>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Header con estadísticas y controles */}
-        <div className="bg-gradient-to-r from-[#D17C22]/5 via-white to-[#8E8D29]/5 border-b border-gray-200/60 px-6 py-4">
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-[#D17C22] to-[#8E8D29] rounded-xl shadow-lg">
+                <div className="p-3 bg-[#D17C22] rounded-xl shadow-lg">
                   <FileText className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Fichas</h3>
                   {loading ? (
                     <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <div className="w-4 h-4 border-2 border-[#D17C22]/30 border-t-[#D17C22] rounded-full animate-spin"></div>
+                      <div className="w-4 h-4 border-2 border-gray-300 border-t-[#D17C22] rounded-full animate-spin"></div>
                       Cargando...
                     </div>
                   ) : (
@@ -145,13 +202,46 @@ export default function FichasTableModern({ filters, onChange }: Props) {
                   onChange={(e) => onChange({ take: e.target.value, page: "1" })}
                   className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium
                            focus:ring-2 focus:ring-[#D17C22]/20 focus:border-[#D17C22]
-                           hover:border-[#8E8D29]/60 transition-all duration-200 bg-white"
+                           hover:border-[#8E8D29] transition-all duration-200 bg-white"
                 >
                   {PAGE_SIZES.map((size) => (
                     <option key={size} value={size}>{size}</option>
                   ))}
                 </select>
               </div>
+
+              {/* Paginación superior - solo en desktop */}
+              {!loading && data.total > 0 && (
+                <div className="hidden lg:flex items-center gap-2">
+                  <span className="text-sm text-gray-600">
+                    Página {page} de {totalPages}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => onChange({ page: String(Math.max(1, page - 1)) })}
+                      disabled={page <= 1}
+                      className={`p-1.5 rounded-md transition-all duration-200 ${
+                        page <= 1
+                          ? 'text-gray-400 cursor-not-allowed'
+                          : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                      }`}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => onChange({ page: String(Math.min(totalPages, page + 1)) })}
+                      disabled={page >= totalPages}
+                      className={`p-1.5 rounded-md transition-all duration-200 ${
+                        page >= totalPages
+                          ? 'text-gray-400 cursor-not-allowed'
+                          : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                      }`}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -204,7 +294,7 @@ export default function FichasTableModern({ filters, onChange }: Props) {
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-4">
-                      <div className="w-8 h-8 border-4 border-[#D17C22]/30 border-t-[#D17C22] rounded-full animate-spin"></div>
+                      <div className="w-8 h-8 border-4 border-gray-300 border-t-[#D17C22] rounded-full animate-spin"></div>
                       <p className="text-gray-500">Cargando fichas...</p>
                     </div>
                   </td>
@@ -296,16 +386,18 @@ export default function FichasTableModern({ filters, onChange }: Props) {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => setSelectedFicha(ficha)}
-                          className="p-2 text-[#D17C22] hover:text-[#8E8D29] hover:bg-gradient-to-r hover:from-[#D17C22]/10 hover:to-white rounded-lg transition-all duration-200"
+                          className="p-2 text-[#D17C22] hover:text-[#8E8D29] hover:bg-[#D17C22]/10 rounded-lg transition-all duration-200"
                           title="Ver detalles"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
-                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-                          title="Más opciones"
+                          onClick={() => setFichaToDelete(ficha)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                          title="Eliminar ficha"
+                          disabled={isDeleting}
                         >
-                          <MoreHorizontal className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -371,8 +463,8 @@ export default function FichasTableModern({ filters, onChange }: Props) {
                         onClick={() => onChange({ page: String(pageNum) })}
                         className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                           page === pageNum
-                            ? 'bg-gradient-to-r from-[#D17C22] to-[#8E8D29] text-white shadow-lg'
-                            : 'text-gray-700 hover:bg-gradient-to-r hover:from-[#D17C22]/10 hover:to-[#8E8D29]/10 hover:text-gray-900'
+                            ? 'bg-[#D17C22] text-white shadow-lg'
+                            : 'text-gray-700 hover:bg-[#D17C22]/10 hover:text-gray-900'
                         }`}
                       >
                         {pageNum}
@@ -418,6 +510,28 @@ export default function FichasTableModern({ filters, onChange }: Props) {
           onClose={() => setSelectedFicha(null)}
         />
       )}
+
+      {/* Modal de confirmación para eliminar */}
+      <ConfirmModal
+        isOpen={!!fichaToDelete}
+        onClose={() => setFichaToDelete(null)}
+        onConfirm={handleDeleteFicha}
+        title="¿Eliminar ficha?"
+        message={`¿Estás seguro de que deseas eliminar la ficha "${fichaToDelete?.nombre_ficha}"? Esta acción no se puede deshacer.`}
+        confirmText={isDeleting ? "Eliminando..." : "Eliminar"}
+        cancelText="Cancelar"
+        type="danger"
+      />
+
+      {/* Modal de éxito al eliminar */}
+      <NotificationModal
+        isOpen={showDeleteSuccess}
+        onClose={() => setShowDeleteSuccess(false)}
+        type="success"
+        title="¡Ficha eliminada!"
+        message={`La ficha "${deletedFichaName}" se ha eliminado correctamente del sistema.`}
+        autoClose={3000}
+      />
     </>
   );
 }

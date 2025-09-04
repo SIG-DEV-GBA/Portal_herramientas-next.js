@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 interface NotificationState {
   isOpen: boolean;
@@ -84,13 +84,13 @@ export function useNotification() {
     });
   };
 
-  const closeNotification = () => {
+  const closeNotification = useCallback(() => {
     setNotification(prev => ({ ...prev, isOpen: false }));
-  };
+  }, []);
 
-  const closeConfirm = () => {
+  const closeConfirm = useCallback(() => {
     setConfirm(prev => ({ ...prev, isOpen: false }));
-  };
+  }, []);
 
   return {
     notification,
