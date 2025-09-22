@@ -30,17 +30,18 @@ export async function getUserWithRole(email: string): Promise<SessionWithRole> {
       select: { role: true }
     });
     
-    let role: 'ADMIN' | 'EDITOR' | 'VIEWER' = 'VIEWER';
+    let role: 'ADMIN' | 'EDITOR' | 'VIEWER' = 'EDITOR';
     
     if (!userPermission) {
-      // Si el usuario no existe, crear automáticamente con rol VIEWER
+      // Si el usuario no existe, crear automáticamente con rol EDITOR
+      console.log(`🆕 Creating new user with EDITOR role: ${email}`);
       await prisma.user_permissions.create({
         data: {
           email,
-          role: 'VIEWER'
+          role: 'EDITOR'
         }
       });
-      role = 'VIEWER';
+      role = 'EDITOR';
     } else {
       role = userPermission.role;
     }
@@ -48,6 +49,6 @@ export async function getUserWithRole(email: string): Promise<SessionWithRole> {
     return { email, role };
   } catch (error) {
     console.error('Error getting user role:', error);
-    return { email, role: 'VIEWER' };
+    return { email, role: 'EDITOR' };
   }
 }

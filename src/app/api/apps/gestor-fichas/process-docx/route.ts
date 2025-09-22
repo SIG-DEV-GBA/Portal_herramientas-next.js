@@ -338,8 +338,7 @@ export async function POST(req: NextRequest) {
         const trabajador = await prisma.trabajadores.findFirst({
           where: { 
             nombre: { 
-              contains: extractedData.trabajador_id.trim(),
-              mode: 'insensitive'
+              contains: extractedData.trabajador_id.trim()
             } 
           },
           select: { id: true }

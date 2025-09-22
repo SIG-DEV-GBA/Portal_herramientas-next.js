@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import AppHeader from "@/app/apps/gestor-fichas/components/layout/AppHeader";
-import NuevaFichaForm from "@/app/apps/gestor-fichas/components/forms/NuevaFichaForm";
-import { useNotification } from "@/hooks/useNotification";
-import { NotificationModal } from "@/components/ui/Modal";
+import AppHeader from "@/apps/gestor-fichas/components/layout/AppHeader";
+import NuevaFichaForm from "@/apps/gestor-fichas/components/forms/NuevaFichaForm";
+import { useNotification } from "@/shared/hooks/useNotification";
+import { NotificationModal } from "@/shared/components/ui/Modal";
+import CorporateFooter from "@/components/layout/CorporateFooter";
 
 export default function NuevaFichaPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -74,9 +75,9 @@ export default function NuevaFichaPage() {
         `La ficha "${nuevaFicha.nombre_ficha}" se ha guardado correctamente. Redirigiendo al dashboard...`
       );
 
-      // Auto-redirección después de 3 segundos
+      // Auto-redirección después de 3 segundos con parámetro refresh
       setTimeout(() => {
-        router.push('/apps/gestor-fichas/dashboard');
+        router.push('/apps/gestor-fichas/dashboard?refresh=true');
       }, 3000);
       
     } catch (error: unknown) {
@@ -98,13 +99,18 @@ export default function NuevaFichaPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <AppHeader title="Nueva Ficha" />
+      <AppHeader title="Nueva Ficha" showBackButton={true} />
       
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6">
           <nav className="flex items-center space-x-2 text-sm text-gray-500">
-            <span>Gestor de Fichas</span>
+            <button 
+              onClick={() => router.push('/apps/gestor-fichas/dashboard')}
+              className="hover:text-gray-700 transition-colors cursor-pointer"
+            >
+              Gestor de Fichas
+            </button>
             <span>/</span>
             <span className="text-gray-900 font-medium">Nueva Ficha</span>
           </nav>
@@ -117,14 +123,18 @@ export default function NuevaFichaPage() {
       </div>
 
       {/* Notification Modal */}
-      <NotificationModal
-        isOpen={notification.isOpen}
-        onClose={closeNotification}
-        type={notification.type}
-        title={notification.title}
-        message={notification.message}
-        autoClose={notification.type === 'success' ? 3000 : undefined}
-      />
+      {notification.isOpen && (
+        <NotificationModal
+          isOpen={notification.isOpen}
+          onClose={closeNotification}
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+          autoClose={notification.type === 'success' ? 3000 : undefined}
+        />
+      )}
+      
+      <CorporateFooter />
     </div>
   );
 }

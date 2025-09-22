@@ -13,7 +13,14 @@
       "Bash(curl:*)",
       "Bash(cat:*)",
       "Bash(sed:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(timeout 15 curl -k https://localhost:3001/login)",
+      "Bash(npx tsc:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx prisma studio:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(mysql:*)",
+      "Bash(npx prisma db execute:*)"
     ],
     "deny": [],
     "ask": []

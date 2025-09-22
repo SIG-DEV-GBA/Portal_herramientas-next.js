@@ -42,6 +42,25 @@ export async function GET(req: NextRequest) {
       const created_hasta = sp.get("created_hasta");
       if (created_desde) desde = new Date(created_desde + "T00:00:00Z");
       if (created_hasta) hasta = new Date(created_hasta + "T23:59:59Z");
+      
+      // Si no hay filtros de fecha específicos, usar rango completo de la BD
+      if (!desde && !hasta) {
+        const rangeResult = await prisma.$queryRaw<Array<{min_date: Date, max_date: Date}>>`
+          SELECT 
+            MIN(created_at) as min_date,
+            MAX(created_at) as max_date 
+          FROM fichas
+        `;
+        
+        if (rangeResult.length > 0 && rangeResult[0].min_date && rangeResult[0].max_date) {
+          desde = rangeResult[0].min_date;
+          hasta = new Date(rangeResult[0].max_date.getTime() + 24 * 60 * 60 * 1000);
+        } else {
+          // Fallback si no hay datos
+          desde = new Date(Date.UTC(2020, 0, 1, 0, 0, 0));
+          hasta = new Date(Date.UTC(2030, 0, 1, 0, 0, 0));
+        }
+      }
     }
 
     // WHERE (para la subconsulta de conteo)
@@ -104,7 +123,26 @@ export async function GET(req: NextRequest) {
     `;
 
     const rows = await prisma.$queryRawUnsafe<any[]>(sql, ...params);
-    return NextResponse.json(serialize(rows));
+    
+    // Verificar el número real de fichas únicas en el rango (para comparar)
+    const uniqueFichasSql = `
+      SELECT COUNT(DISTINCT f.id) as total_unique
+      FROM fichas f
+      ${whereSQL}
+    `;
+    const uniqueFichasResult = await prisma.$queryRawUnsafe<Array<{total_unique: number}>>(uniqueFichasSql, ...params);
+    
+    
+    const response = {
+      data: rows,
+      metadata: {
+        total_unique_fichas: Number(uniqueFichasResult[0]?.total_unique || 0),
+        total_assignments: rows.reduce((sum, row) => sum + Number(row.total || 0), 0),
+        total_portales: rows.length
+      }
+    };
+    
+    return NextResponse.json(serialize(response));
   } catch (e: any) {
     console.error("stats/portales error:", e?.message, e);
     return NextResponse.json({ error: e?.message ?? "Internal error" }, { status: 500 });

@@ -6,13 +6,39 @@ const AUTH_COOKIE = process.env.AUTH_COOKIE ?? "sid";
 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
+  
+  // 0) Verificar dominio permitido
+  const allowedDomains = [
+    'solidaridadintergeneracional.es',
+    'fundacionpadrinosdelavejez.es',
+    'localhost' // Para desarrollo
+  ];
+  
+  const hostname = req.headers.get('host') || '';
+  const isAllowedDomain = allowedDomains.some(domain => 
+    hostname === domain || 
+    hostname.endsWith(`.${domain}`) ||
+    hostname.startsWith('localhost:') // Para puertos de desarrollo
+  );
+  
+  if (!isAllowedDomain) {
+    return new NextResponse(
+      '<h1>Dominio no autorizado</h1><p>Este portal no está disponible desde este dominio.</p>',
+      { 
+        status: 403, 
+        headers: { 'Content-Type': 'text/html; charset=utf-8' } 
+      }
+    );
+  }
 
   // 1) Rutas públicas (no requieren sesión)
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/auth") ||   // login/logout/callback del portal
     pathname.startsWith("/_next/") ||
-    pathname === "/favicon.ico"
+    pathname === "/favicon.ico" ||
+    pathname.startsWith("/api/apps/gestor-fichas/pdf-preview-public") ||     // PDF preview público
+    pathname.startsWith("/api/debug")     // Debug endpoints (temporal)
   ) {
     return NextResponse.next();
   }

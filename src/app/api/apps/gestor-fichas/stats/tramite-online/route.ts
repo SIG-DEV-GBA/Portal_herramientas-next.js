@@ -43,6 +43,30 @@ export async function GET(req: NextRequest) {
   const trabajador_subida_id = sp.get("trabajador_subida_id");
   if (trabajador_subida_id) where.trabajador_subida_id = Number(trabajador_subida_id);
 
+  // Filtros de destaque (lógica inclusiva)
+  const destaque_principal_filter = sp.get("destaque_principal");
+  const destaque_secundario_filter = sp.get("destaque_secundario");
+  
+  const { generateDestaquePrismaFilters } = await import('@/lib/utils/destaque-filters');
+  const destaqueConditions = generateDestaquePrismaFilters({
+    destaque_principal: destaque_principal_filter,
+    destaque_secundario: destaque_secundario_filter
+  });
+  
+  // Aplicar condiciones de destaque si existen
+  if (destaqueConditions.length > 0) {
+    if (destaqueConditions.length === 1) {
+      // Una sola condición
+      Object.assign(where, destaqueConditions[0]);
+    } else {
+      // Múltiples condiciones - deben cumplirse todas (AND)
+      where.AND = [
+        ...(where.AND || []),
+        ...destaqueConditions
+      ];
+    }
+  }
+
   // --- periodo: anio/mes ó rango libre created_desde/hasta
   const anio = Number(sp.get("anio"));
   const mes = Number(sp.get("mes"));

@@ -1,10 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useNotification } from '@/hooks/useNotification';
-import { Modal } from '@/components/ui/Modal';
-import { FullPageSkeleton } from '@/components/ui/LoadingSkeletons';
+import { useState } from "react";
+import useSWR from "swr";
 
 interface User {
   id: number;
@@ -14,265 +11,351 @@ interface User {
   updated_at: string;
 }
 
-interface UserFormData {
-  email: string;
-  role: 'ADMIN' | 'EDITOR' | 'VIEWER';
+interface UserEditModalProps {
+  user: User | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (userId: number, role: string) => void;
 }
 
-export function UsersManager() {
-  const { canAccess, loading: userLoading } = useCurrentUser();
-  const { showNotification } = useNotification();
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [formData, setFormData] = useState<UserFormData>({ email: '', role: 'VIEWER' });
+const UserEditModal = ({ user, isOpen, onClose, onSave }: UserEditModalProps) => {
+  const [selectedRole, setSelectedRole] = useState(user?.role || 'VIEWER');
 
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch('/api/users');
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data.users || []);
-      } else {
-        showNotification('Error al cargar usuarios', 'error');
-      }
-    } catch (error) {
-      showNotification('Error de conexión', 'error');
-    } finally {
-      setLoading(false);
+  const handleSave = () => {
+    if (user) {
+      onSave(user.id, selectedRole);
     }
   };
 
-  useEffect(() => {
-    if (!userLoading && canAccess('users', 'read')) {
-      fetchUsers();
-    } else if (!userLoading && !canAccess('users', 'read')) {
-      setLoading(false);
-    }
-  }, [userLoading, canAccess]);
+  if (!isOpen || !user) return null;
 
-  // Mostrar skeleton mientras carga el usuario o los datos
-  if (userLoading || (loading && canAccess('users', 'read'))) {
-    return <FullPageSkeleton />;
-  }
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">
+          Cambiar Permisos de Acceso
+        </h2>
+        
+        <div className="mb-4">
+          <p className="text-sm text-gray-600 mb-2">Usuario:</p>
+          <p className="font-medium">{user.email}</p>
+        </div>
 
-  // Verificar permisos después de cargar
-  if (!canAccess('users', 'read')) {
-    return (
-      <div className="p-6 text-center">
-        <h2 className="text-xl font-semibold text-gray-800 mb-2">Acceso Denegado</h2>
-        <p className="text-gray-600">No tienes permisos para acceder a la gestión de usuarios.</p>
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Nivel de Permisos
+          </label>
+          <select
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="ADMIN">👑 ADMIN - Acceso completo</option>
+            <option value="EDITOR">✏️ EDITOR - Crear y editar</option>
+            <option value="VIEWER">👁️ VIEWER - Solo lectura</option>
+          </select>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+          >
+            Guardar
+          </button>
+        </div>
       </div>
-    );
-  }
+    </div>
+  );
+};
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+interface NewUserModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreate: (email: string, role: string) => void;
+}
+
+const NewUserModal = ({ isOpen, onClose, onCreate }: NewUserModalProps) => {
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('VIEWER');
+
+  const handleCreate = () => {
+    if (email.trim() && role) {
+      onCreate(email.trim(), role);
+      setEmail('');
+      setRole('VIEWER');
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">
+          Dar Acceso al Portal
+        </h2>
+        
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Email
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="usuario@ejemplo.com"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Nivel de Permisos
+          </label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="ADMIN">👑 ADMIN - Acceso completo</option>
+            <option value="EDITOR">✏️ EDITOR - Crear y editar</option>
+            <option value="VIEWER">👁️ VIEWER - Solo lectura</option>
+          </select>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={!email.trim()}
+            className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white rounded-md transition-colors"
+          >
+            Crear
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const UsersManager = () => {
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
+
+  const fetcher = (url: string) => 
+    fetch(url, { credentials: 'include' }).then(res => {
+      if (!res.ok) throw new Error('Failed to fetch');
+      return res.json();
+    });
+
+  const { data: usersData, mutate, isLoading, error } = useSWR<{ users: User[] }>(
+    '/api/admin/user-permissions',
+    fetcher
+  );
+
+  const handleRoleChange = async (userId: number, newRole: string) => {
     try {
-      const url = editingUser ? `/api/users/${editingUser.id}` : '/api/users';
-      const method = editingUser ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
+      const response = await fetch(`/api/admin/user-permissions/${userId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        credentials: 'include',
+        body: JSON.stringify({ role: newRole })
       });
 
-      if (response.ok) {
-        showNotification(
-          editingUser ? 'Usuario actualizado exitosamente' : 'Usuario creado exitosamente',
-          'success'
-        );
-        setIsModalOpen(false);
-        setEditingUser(null);
-        setFormData({ email: '', role: 'VIEWER' });
-        fetchUsers();
-      } else {
-        const errorData = await response.json();
-        showNotification(errorData.error || 'Error al procesar la solicitud', 'error');
+      if (!response.ok) {
+        const error = await response.json();
+        alert(`Error: ${error.error}`);
+        return;
       }
+
+      setEditingUser(null);
+      mutate();
+      alert('Rol actualizado correctamente');
     } catch (error) {
-      showNotification('Error de conexión', 'error');
+      alert('Error al actualizar el rol');
     }
   };
 
-  const handleEdit = (user: User) => {
-    setEditingUser(user);
-    setFormData({ email: user.email, role: user.role });
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = async (userId: number, userEmail: string) => {
-    if (!confirm(`¿Estás seguro de que quieres eliminar el usuario ${userEmail}?`)) {
+  const handleDeleteUser = async (userId: number, userEmail: string) => {
+    if (!confirm(`¿Estás seguro de eliminar el acceso de ${userEmail}?`)) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/users/${userId}`, {
+      const response = await fetch(`/api/admin/user-permissions/${userId}`, {
         method: 'DELETE',
+        credentials: 'include'
       });
 
-      if (response.ok) {
-        showNotification('Usuario eliminado exitosamente', 'success');
-        fetchUsers();
-      } else {
-        const errorData = await response.json();
-        showNotification(errorData.error || 'Error al eliminar usuario', 'error');
+      if (!response.ok) {
+        const error = await response.json();
+        alert(`Error: ${error.error}`);
+        return;
       }
+
+      mutate();
+      alert('Usuario eliminado correctamente');
     } catch (error) {
-      showNotification('Error de conexión', 'error');
+      alert('Error al eliminar el usuario');
     }
   };
 
-  const openCreateModal = () => {
-    setEditingUser(null);
-    setFormData({ email: '', role: 'VIEWER' });
-    setIsModalOpen(true);
+  const handleCreateUser = async (email: string, role: string) => {
+    try {
+      const response = await fetch('/api/admin/user-permissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, role })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(`Error: ${error.error}`);
+        return;
+      }
+
+      setIsNewUserModalOpen(false);
+      mutate();
+      alert('Usuario creado correctamente');
+    } catch (error) {
+      alert('Error al crear el usuario');
+    }
   };
 
-  const getRoleBadgeClass = (role: string) => {
-    const classes = {
-      ADMIN: 'bg-red-100 text-red-800',
-      EDITOR: 'bg-blue-100 text-blue-800',
-      VIEWER: 'bg-green-100 text-green-800',
+  const getRoleBadge = (role: string) => {
+    const styles = {
+      ADMIN: 'bg-red-100 text-red-800 border-red-200',
+      EDITOR: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      VIEWER: 'bg-gray-100 text-gray-800 border-gray-200'
     };
-    return classes[role as keyof typeof classes] || 'bg-gray-100 text-gray-800';
+
+    const icons = {
+      ADMIN: '👑',
+      EDITOR: '✏️',
+      VIEWER: '👁️'
+    };
+
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[role as keyof typeof styles]}`}>
+        {icons[role as keyof typeof icons]} {role}
+      </span>
+    );
   };
 
-  if (loading) {
-    return <div className="p-6 text-center">Cargando usuarios...</div>;
+  if (isLoading) {
+    return (
+      <div className="animate-pulse">
+        <div className="flex justify-between items-center mb-6">
+          <div className="h-6 bg-gray-200 rounded w-48"></div>
+          <div className="h-10 bg-gray-200 rounded w-32"></div>
+        </div>
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="flex items-center justify-between py-4 border-b border-gray-200">
+            <div className="flex items-center space-x-4">
+              <div className="h-4 bg-gray-200 rounded w-48"></div>
+              <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+            </div>
+            <div className="flex space-x-2">
+              <div className="h-8 bg-gray-200 rounded w-16"></div>
+              <div className="h-8 bg-gray-200 rounded w-16"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   }
 
+  if (error) {
+    return (
+      <div className="text-red-600 bg-red-50 border border-red-200 rounded p-4">
+        Error cargando usuarios. Verifica que tengas permisos de administrador.
+      </div>
+    );
+  }
+
+  const users = usersData?.users || [];
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Gestión de Usuarios</h2>
-        {canAccess('users', 'create') && (
-          <button
-            onClick={openCreateModal}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Crear Usuario
-          </button>
+    <>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Permisos de Acceso al Portal ({users.length})
+          </h2>
+          <p className="text-sm text-gray-600">
+            Controla quién puede acceder al sistema y con qué permisos (ADMIN/EDITOR/VIEWER)
+          </p>
+        </div>
+        <button
+          onClick={() => setIsNewUserModalOpen(true)}
+          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+        >
+          ➕ Dar Acceso a Usuario
+        </button>
+      </div>
+
+      <div className="space-y-0 border border-gray-200 rounded-lg overflow-hidden">
+        {users.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            No hay usuarios registrados
+          </div>
+        ) : (
+          users.map((user) => (
+            <div key={user.id} className="flex items-center justify-between p-4 border-b border-gray-200 last:border-b-0 hover:bg-gray-50">
+              <div className="flex items-center space-x-4">
+                <div>
+                  <p className="font-medium text-gray-900">{user.email}</p>
+                  <p className="text-sm text-gray-500">
+                    Creado: {new Date(user.created_at).toLocaleDateString('es-ES')}
+                  </p>
+                </div>
+                {getRoleBadge(user.role)}
+              </div>
+              
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setEditingUser(user)}
+                  className="px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors"
+                >
+                  ✏️ Editar
+                </button>
+                <button
+                  onClick={() => handleDeleteUser(user.id, user.email)}
+                  className="px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
+                >
+                  🗑️ Eliminar
+                </button>
+              </div>
+            </div>
+          ))
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Email
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Rol
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Creado
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {users.map((user) => (
-              <tr key={user.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {user.email}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadgeClass(user.role)}`}>
-                    {user.role}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(user.created_at).toLocaleDateString('es-ES')}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-2">
-                  {canAccess('users', 'update') && (
-                    <button
-                      onClick={() => handleEdit(user)}
-                      className="text-blue-600 hover:text-blue-800 transition-colors"
-                    >
-                      Editar
-                    </button>
-                  )}
-                  {canAccess('users', 'delete') && (
-                    <button
-                      onClick={() => handleDelete(user.id, user.email)}
-                      className="text-red-600 hover:text-red-800 transition-colors"
-                    >
-                      Eliminar
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <UserEditModal
+        user={editingUser}
+        isOpen={!!editingUser}
+        onClose={() => setEditingUser(null)}
+        onSave={handleRoleChange}
+      />
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingUser(null);
-        }}
-        title={editingUser ? 'Editar Usuario' : 'Crear Usuario'}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Rol
-            </label>
-            <select
-              value={formData.role}
-              onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as any }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              required
-            >
-              <option value="VIEWER">VIEWER - Solo lectura de fichas</option>
-              <option value="EDITOR">EDITOR - Puede gestionar datos excepto usuarios</option>
-              <option value="ADMIN">ADMIN - Control total</option>
-            </select>
-          </div>
-
-          <div className="flex space-x-3 pt-4">
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              {editingUser ? 'Actualizar' : 'Crear'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsModalOpen(false);
-                setEditingUser(null);
-              }}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
-      </Modal>
-    </div>
+      <NewUserModal
+        isOpen={isNewUserModalOpen}
+        onClose={() => setIsNewUserModalOpen(false)}
+        onCreate={handleCreateUser}
+      />
+    </>
   );
-}
+};

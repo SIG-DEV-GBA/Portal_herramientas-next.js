@@ -1,46 +1,78 @@
+/**
+ * Componente principal del cliente para la gestión de fichas
+ * 
+ * Este componente maneja la interfaz principal del sistema de gestión de fichas,
+ * incluyendo filtros, visualizaciones, tablas de datos y exportaciones.
+ * 
+ * Características principales:
+ * - Estado sincronizado con URL para bookmarking y navegación
+ * - Sistema de filtros dinámicos con validación
+ * - Visualizaciones interactivas con gráficos y estadísticas
+ * - Tabla de datos con paginación y ordenación
+ * - Exportación a PDF y Excel con configuraciones personalizables
+ * - Gestión de entidades relacionadas (portales, temáticas, trabajadores)
+ * - Interfaz responsiva y optimizada para experiencia de usuario
+ * 
+ * @author Sistema de Gestión de Fichas
+ * @version 2.0
+ */
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, FileText, Download } from "lucide-react";
+import { Plus, FileText, Download, FileSpreadsheet } from "lucide-react";
 
 // Layout
-import AppHeader from "@/app/apps/gestor-fichas/components/layout/AppHeader";
-import GlobalFilters from "@/app/apps/gestor-fichas/components/filters/GlobalFilters";
+import AppHeader from "@/apps/gestor-fichas/components/layout/AppHeader";
+import GlobalFilters from "@/apps/gestor-fichas/components/filters/GlobalFilters";
+import CorporateFooter from "@/components/layout/CorporateFooter";
 
 // Gráficas
-import FichasPorMesChart from "@/app/apps/gestor-fichas/components/charts/FichasPorMesChart";
-import PortalesPorMesChart from "@/app/apps/gestor-fichas/components/charts/PortalesPorMesChart";
-import AmbitosPorPortalChart from "@/app/apps/gestor-fichas/components/charts/AmbitosPorPortalChart";
-import TramiteOnlineChart from "@/app/apps/gestor-fichas/components/charts/TramiteOnlineChart";
-import TematicasDistribucionChart from "@/app/apps/gestor-fichas/components/charts/TematicasDistribucionChart";
+import FichasPorMesChart from "@/apps/gestor-fichas/components/charts/FichasPorMesChart";
+import PortalesPorMesChart from "@/apps/gestor-fichas/components/charts/PortalesPorMesChart";
+import AmbitosPorPortalChart from "@/apps/gestor-fichas/components/charts/AmbitosPorPortalChart";
+import TramiteOnlineChart from "@/apps/gestor-fichas/components/charts/TramiteOnlineChart";
+import TematicasDistribucionChart from "@/apps/gestor-fichas/components/charts/TematicasDistribucionChart";
 
 // Tabs
-import ChartsTabs, { type Tab } from "@/app/apps/gestor-fichas/components/charts/ChartsTabs";
+import ChartsTabs, { type Tab } from "@/apps/gestor-fichas/components/charts/ChartsTabs";
 
 // Tabla
-import FichasTableModern from "@/app/apps/gestor-fichas/components/fichas/FichasTableModern";
+import FichasTableModern from "@/apps/gestor-fichas/components/fichas/FichasTableModern";
 
 // Componentes de gestión
-import { PortalesManager } from "@/components/management/PortalesManager";
-import { TematicasManager } from "@/components/management/TematicasManager";
-import { TrabajadoresManager } from "@/components/management/TrabajadoresManager";
+import { PortalesManager } from "@/shared/components/data-management/PortalesManager";
+import { TematicasManager } from "@/shared/components/data-management/TematicasManager";
+import { TrabajadoresManager } from "@/shared/components/data-management/TrabajadoresManager";
 
 // PDF
-import PDFConfigModal, { type PDFConfig } from "@/app/apps/gestor-fichas/components/pdf/PDFConfigModal";
+import { type PDFConfig } from "@/apps/gestor-fichas/components/pdf/PDFConfigModal";
+import ExcelConfirmModal from "@/apps/gestor-fichas/components/modals/ExcelConfirmModal";
 
 // Tipos / Utils
-import type { Filters } from "@/app/apps/gestor-fichas/lib/types";
-import { asAmbito, asTramite, asComplejidad, monthName } from "@/app/apps/gestor-fichas/lib/utils";
+import type { Filters } from "@/apps/gestor-fichas/lib/types";
+import { asAmbito, asTramite, asComplejidad } from "@/apps/gestor-fichas/lib/utils";
 
-// -----------------------------------------------
-// Estado sincronizado con querystring
-// -----------------------------------------------
+// =====================  MANEJO DE ESTADO Y SINCRONIZACIÓN  =====================
+/**
+ * Hook personalizado para gestionar el estado de filtros sincronizado con la URL
+ * 
+ * Funcionalidades:
+ * - Inicializa filtros desde parámetros de URL al cargar la página
+ * - Actualiza URL automáticamente cuando cambian los filtros
+ * - Preserva scroll position durante navegación programatica
+ * - Proporciona funciones helper para actualizar y resetear filtros
+ * - Validación de tipos para parámetros de consulta
+ * 
+ * @returns {object} Estado de filtros y funciones de manipulación
+ */
 function useQueryState() {
   const sp = useSearchParams();
   const router = useRouter();
 
+  // Inicialización del estado de filtros desde URL parameters
+  // Utiliza lazy initialization para mejor rendimiento
   const [filters, setFilters] = useState<Filters>(() => ({
     q: sp.get("q") ?? "",
     ambito: asAmbito(sp.get("ambito")),
@@ -86,9 +118,17 @@ function useQueryState() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
+  /**
+   * Actualiza filtros parcialmente manteniendo valores existentes
+   * @param patch Objeto con filtros a actualizar
+   */
   const set = (patch: Partial<Filters>) =>
     setFilters((f) => ({ ...f, ...patch, page: patch.page ?? f.page }));
 
+  /**
+   * Resetea todos los filtros a sus valores por defecto
+   * Útil para limpiar todas las selecciones del usuario
+   */
   const reset = () =>
     setFilters({
       q: "",
@@ -113,55 +153,51 @@ function useQueryState() {
   return { filters, set, reset } as const;
 }
 
-// -----------------------------------------------
-// Vista
-// -----------------------------------------------
+// =====================  COMPONENTE PRINCIPAL  =====================
+/**
+ * Componente principal que orquesta toda la interfaz de gestión de fichas
+ * 
+ * Maneja:
+ * - Estado de navegación entre diferentes vistas (análisis, datos, gestión)
+ * - Funcionalidades de exportación (PDF, Excel)
+ * - Refresh/actualización de datos
+ * - Contadores y estadísticas globales
+ * - Integración con sistema de filtros
+ */
 export default function FichasClient() {
   const { filters, set, reset } = useQueryState();
+  
+  // =====================  ESTADO LOCAL DEL COMPONENTE  =====================
   const [activeMainTab, setActiveMainTab] = useState<'analisis' | 'datos' | 'portales' | 'tematicas' | 'trabajadores'>('analisis');
-  const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [excelModalOpen, setExcelModalOpen] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Function to fetch total records for PDF modal
-  const fetchTotalRecords = async () => {
-    try {
-      // Use the same filter construction logic as the charts
-      const params = new URLSearchParams();
-      if (filters.anio) params.set("anio", filters.anio);
-      if (filters.mes) params.set("mes", filters.mes);
-      if (filters.q) params.set("q", filters.q);
-      if (filters.ambito) params.set("ambito", filters.ambito);
-      if (filters.tramite_tipo) params.set("tramite_tipo", filters.tramite_tipo);
-      if (filters.complejidad) params.set("complejidad", filters.complejidad);
-      if (filters.ccaa_id) params.set("ccaa_id", filters.ccaa_id);
-      if (filters.provincia_id) params.set("provincia_id", filters.provincia_id);
-      if (filters.provincia_principal) params.set("provincia_principal", filters.provincia_principal);
-      if (filters.trabajador_id) params.set("trabajador_id", filters.trabajador_id);
-      if (filters.trabajador_subida_id) params.set("trabajador_subida_id", filters.trabajador_subida_id);
-      if (filters.tematica_id) params.set("tematica_id", filters.tematica_id);
-      if (filters.created_desde) params.set("created_desde", filters.created_desde);
-      if (filters.created_hasta) params.set("created_hasta", filters.created_hasta);
-      if (filters.destaque_principal) params.set("destaque_principal", filters.destaque_principal);
-      if (filters.destaque_secundario) params.set("destaque_secundario", filters.destaque_secundario);
+  /**
+   * Función para forzar la actualización de datos
+   * Incrementa la clave de refresh que triggerá re-renders en componentes hijo
+   */
+  const forceRefresh = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
+
+  // =====================  EFECTOS DE INICIALIZACIÓN  =====================
+  // Detectar retorno desde creación de nueva ficha para refresh automático
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('refresh') === 'true') {
+      // Limpiar parámetro de refresh de la URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('refresh');
+      window.history.replaceState({}, '', newUrl.toString());
       
-      params.set('take', '1'); // We only need the total count
-      params.set('page', '1');
-      params.set('withCount', 'true'); // IMPORTANTE: Para que devuelva el total
-      
-      const response = await fetch(`/api/apps/gestor-fichas/fichas?${params.toString()}`);
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Fetched total records:', data.total);
-        setTotalRecords(data.total || 0);
-      } else {
-        console.error('Failed to fetch total records:', response.status, response.statusText);
-        setTotalRecords(0);
-      }
-    } catch (error) {
-      console.error('Error fetching total records:', error);
-      setTotalRecords(0);
+      // Force refresh the data
+      forceRefresh();
     }
-  };
+  }, [forceRefresh]);
+
 
   // Tabs de gráficas (una visible a la vez -> menos scroll)
   const charts: Tab[] = [
@@ -172,8 +208,12 @@ export default function FichasClient() {
     { key: "tematicas",      label: "Temáticas (mes / año)",   node: <TematicasDistribucionChart filters={filters} /> },
   ];
 
-  const handleGeneratePDF = async (config: PDFConfig) => {
+
+  const handleGeneratePDFV2 = async (config: PDFConfig) => {
     try {
+      setIsGeneratingPDF(true);
+      setPdfProgress("Preparando datos...");
+      
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([k, v]) => {
         if (v !== undefined && v !== null && String(v).length > 0) {
@@ -184,9 +224,12 @@ export default function FichasClient() {
       // Add PDF config
       params.set('config', JSON.stringify(config));
       
-      const response = await fetch(`/api/apps/gestor-fichas/generate-pdf?${params.toString()}`, {
+      setPdfProgress("Generando gráficos...");
+      console.log('🚀 Generating PDF V2 (Puppeteer + Recharts)...');
+      
+      const response = await fetch(`/api/apps/gestor-fichas/generate-pdf-v2?${params.toString()}`, {
         method: 'GET',
-        credentials: 'same-origin', // Include cookies for authentication
+        credentials: 'same-origin',
         headers: {
           'Accept': 'application/pdf',
         }
@@ -194,23 +237,115 @@ export default function FichasClient() {
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('PDF generation failed:', response.status, errorText);
-        throw new Error(`Error generando PDF: ${response.status} ${response.statusText}`);
+        console.error('PDF V2 generation failed:', response.status, errorText);
+        throw new Error(`Error generando PDF V2: ${response.status} ${response.statusText}`);
+      }
+      
+      setPdfProgress("Procesando PDF...");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // Create filename based on config
+      const currentDate = new Date().toISOString().split('T')[0];
+      const isInsights = config.includeCharts && !config.includeTable;
+      const baseFilename = isInsights ? 'informe-insights-v2' : 'informe-completo-v2';
+      
+      a.download = `${baseFilename}-${currentDate}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      setPdfProgress("Completado ✅");
+      console.log('✅ PDF V2 downloaded successfully!');
+      
+      // Pequeña pausa para mostrar el éxito antes de cerrar
+      setTimeout(() => {
+        setIsGeneratingPDF(false);
+        setPdfProgress("");
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error generando PDF V2:', error);
+      setPdfProgress("Error al generar PDF");
+      setTimeout(() => {
+        setIsGeneratingPDF(false);
+        setPdfProgress("");
+      }, 2000);
+    }
+  };
+
+  const handleGenerateExcel = async (selectedColumns: string[]) => {
+    try {
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && String(v).length > 0) {
+          params.set(k, String(v));
+        }
+      });
+      
+      // Add selected columns parameter
+      params.set('columns', JSON.stringify(selectedColumns));
+      
+      const response = await fetch(`/api/apps/gestor-fichas/generate-excel?${params.toString()}`, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Excel generation failed:', response.status, errorText);
+        throw new Error(`Error generando Excel: ${response.status} ${response.statusText}`);
       }
       
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `informe-fichas-${new Date().toISOString().split('T')[0]}.pdf`;
+      a.download = `justificante-ayudas-${new Date().toISOString().split('T')[0]}.xlsx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error generando PDF:', error);
-      // Here you could add a notification system
+      console.error('Error generando Excel:', error);
     }
+  };
+
+  const fetchTotalRecords = async () => {
+    try {
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && String(v).length > 0) {
+          params.set(k, String(v));
+        }
+      });
+      
+      params.set('take', '1');
+      params.set('page', '1');
+      params.set('withCount', 'true');
+      
+      const response = await fetch(`/api/apps/gestor-fichas/fichas?${params.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        setTotalRecords(data.total || 0);
+      } else {
+        setTotalRecords(0);
+      }
+    } catch (error) {
+      console.error('Error fetching total records:', error);
+      setTotalRecords(0);
+    }
+  };
+
+  const handleExcelButtonClick = async () => {
+    await fetchTotalRecords();
+    setExcelModalOpen(true);
   };
 
   return (
@@ -288,21 +423,42 @@ export default function FichasClient() {
             </button>
             </nav>
             
-            {/* Botones de acción */}
+            {/* Botones de acción - Solo visibles en pestaña "Análisis y Gráficos" */}
             <div className="flex items-center gap-3">
-              {/* Botón Generar PDF - Visible en todas las pestañas */}
-              <button
-                onClick={async () => {
-                  await fetchTotalRecords();
-                  setPdfModalOpen(true);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#D17C22] 
-                         bg-white border border-[#D17C22] rounded-lg hover:bg-[#D17C22] hover:text-white
-                         focus:ring-2 focus:ring-[#D17C22]/20 transition-colors duration-200"
-              >
-                <Download size={16} />
-                Generar PDF
-              </button>
+              {activeMainTab === 'analisis' && (
+                <>
+                  {/* Botón Justificante de Ayudas (Excel) */}
+                  <button
+                    onClick={handleExcelButtonClick}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white 
+                             bg-green-600 border border-green-600 rounded-lg hover:bg-green-700
+                             focus:ring-2 focus:ring-green-500/20 transition-colors duration-200"
+                  >
+                    <FileSpreadsheet size={16} />
+                    Justificante Ayudas
+                  </button>
+                  
+                  {/* Botón Informe de Insights V2 */}
+                  <button
+                    onClick={() => {
+                      const config: PDFConfig = {
+                        includeCharts: true,
+                        includeTable: false,
+                        includeFiltersInfo: true,
+                        chartTypes: ['fichas-por-mes', 'portales-por-mes', 'tematicas-distribucion', 'tramite-online']
+                      };
+                      handleGeneratePDFV2(config);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white 
+                             bg-gradient-to-r from-blue-600 to-indigo-600 border border-blue-600 rounded-lg 
+                             hover:from-blue-700 hover:to-indigo-700 focus:ring-2 focus:ring-blue-500/20 
+                             transition-all duration-200 shadow-md"
+                  >
+                    <Download size={16} />
+                    📊 Generar Informe de Gráficas
+                  </button>
+                </>
+              )}
               
               {/* Botón Nueva Ficha - Solo visible en la pestaña "Datos y Fichas" */}
               {activeMainTab === 'datos' && (
@@ -330,6 +486,7 @@ export default function FichasClient() {
             {activeMainTab === 'datos' && (
               <div className="-m-6">
                 <FichasTableModern 
+                  key={refreshKey}
                   filters={filters} 
                   onChange={set} 
                   onRecordCountChange={setTotalRecords}
@@ -344,14 +501,51 @@ export default function FichasClient() {
         </div>
       </div>
 
-      {/* PDF Configuration Modal */}
-      <PDFConfigModal
-        isOpen={pdfModalOpen}
-        onClose={() => setPdfModalOpen(false)}
+      {/* Excel Confirmation Modal */}
+      <ExcelConfirmModal
+        isOpen={excelModalOpen}
+        onClose={() => setExcelModalOpen(false)}
         filters={filters}
-        onGeneratePDF={handleGeneratePDF}
+        onConfirm={handleGenerateExcel}
         totalRecords={totalRecords}
       />
+
+      {/* PDF Generation Progress Modal */}
+      {isGeneratingPDF && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            <div className="text-center">
+              <div className="mb-6">
+                <div className="w-16 h-16 mx-auto mb-4 relative">
+                  <div className="w-16 h-16 border-4 border-blue-200 rounded-full animate-spin border-t-blue-600"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  Generando Insights V2
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Esto puede tomar unos segundos mientras procesamos los datos y gráficos...
+                </p>
+                <div className="bg-gray-100 rounded-lg p-3 mb-4">
+                  <p className="text-sm font-medium text-gray-800">{pdfProgress}</p>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full animate-pulse" style={{width: pdfProgress.includes("Completado") ? "100%" : pdfProgress.includes("Error") ? "100%" : "60%"}}></div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500">
+                💡 Los gráficos avanzados requieren más tiempo de procesamiento
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <CorporateFooter />
     </div>
   );
 }

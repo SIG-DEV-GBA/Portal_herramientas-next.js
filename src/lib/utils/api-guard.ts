@@ -11,17 +11,28 @@ export async function requireAuth(req: NextRequest) {
 
 export async function requirePermission(
   req: NextRequest,
-  resource: "fichas" | "lookups" | "portales" | "tematicas" | "trabajadores" | "users",
-  action: "read" | "create" | "update" | "delete"
+  resource: "fichas" | "lookups" | "portales" | "tematicas" | "trabajadores" | "users" | "admin",
+  action: "read" | "create" | "update" | "delete" | "write"
 ) {
+  console.log(`🔐 requirePermission: ${resource}.${action}`);
+  
   const { session, error } = await requireAuth(req);
-  if (error) return { error };
+  if (error) {
+    console.log("❌ Auth failed:", error);
+    return { error };
+  }
+  
+  console.log("✅ Session:", session.email);
   
   // Obtener el rol del usuario y crear automáticamente si no existe
   const sessionWithRole = await getUserWithRole(session.email);
+  console.log("👤 User with role:", sessionWithRole);
   
   if (!can(sessionWithRole.role, resource, action)) {
+    console.log(`❌ Permission denied: ${sessionWithRole.role} cannot ${action} ${resource}`);
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
-  return { session: sessionWithRole };
+  
+  console.log(`✅ Permission granted: ${sessionWithRole.role} can ${action} ${resource}`);
+  return { session: sessionWithRole, user: sessionWithRole };
 }

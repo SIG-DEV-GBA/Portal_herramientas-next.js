@@ -35,6 +35,13 @@ export const matrix = {
     update: ["ADMIN"],
     delete: ["ADMIN"],
   },
+  admin: {
+    read:   ["ADMIN"],
+    create: ["ADMIN"],
+    update: ["ADMIN"],
+    delete: ["ADMIN"],
+    write:  ["ADMIN"],
+  },
 } as const;
 
 type Matrix = typeof matrix;

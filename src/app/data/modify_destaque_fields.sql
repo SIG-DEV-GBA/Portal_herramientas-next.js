@@ -4,7 +4,10 @@
 
 USE `historico_fichas_subidas`;
 
--- 1. Primero, actualizar los valores existentes (si los hay)
+-- 1. Deshabilitar el modo seguro temporalmente
+SET SQL_SAFE_UPDATES = 0;
+
+-- 2. Actualizar los valores existentes (si los hay)
 -- Mapear 'novedad' -> 'nueva' y 'destacable' -> 'para_publicitar'
 UPDATE `fichas` 
 SET `destaque_principal` = CASE 
@@ -21,6 +24,9 @@ SET `destaque_secundario` = CASE
     ELSE `destaque_secundario`
 END
 WHERE `destaque_secundario` IN ('novedad', 'destacable');
+
+-- 3. Reactivar el modo seguro
+SET SQL_SAFE_UPDATES = 1;
 
 -- 2. Modificar la estructura de las columnas con los nuevos valores ENUM
 ALTER TABLE `fichas` 

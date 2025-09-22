@@ -87,6 +87,10 @@ export async function GET(req: NextRequest) {
     const trabajador_id = toInt(sp.get("trabajador_id"));
     const trabajador_subida_id = toInt(sp.get("trabajador_subida_id"));
 
+    // Filtros de destaque
+    const destaque_principal = sp.get("destaque_principal");
+    const destaque_secundario = sp.get("destaque_secundario");
+
     // WHERE del conteo
     const whereParts: string[] = ["f.created_at >= ?", "f.created_at < ?"]; // < hasta (exclusivo)
     const params: Param[] = [desde, hasta];
@@ -117,6 +121,16 @@ export async function GET(req: NextRequest) {
     }
     if (trabajador_id)        { whereParts.push("f.trabajador_id = ?"); params.push(trabajador_id); }
     if (trabajador_subida_id) { whereParts.push("f.trabajador_subida_id = ?"); params.push(trabajador_subida_id); }
+
+    // Filtros de destaque (lógica inclusiva)
+    const { generateDestaqueSqlFilters } = await import('@/lib/utils/destaque-filters');
+    const destaqueFilters = generateDestaqueSqlFilters({
+      destaque_principal,
+      destaque_secundario
+    }, 'f');
+    
+    whereParts.push(...destaqueFilters.whereParts);
+    params.push(...destaqueFilters.params);
 
     const whereSQL = "WHERE " + whereParts.join(" AND ");
 

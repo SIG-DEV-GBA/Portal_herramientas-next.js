@@ -155,13 +155,13 @@ enum fichas_complejidad {
 }
 
 enum fichas_destaque_principal {
-  novedad
-  destacable
+  nueva
+  para_publicitar
 }
 
 enum fichas_destaque_secundario {
-  novedad
-  destacable
+  nueva
+  para_publicitar
 }
 
 enum user_permissions_role {

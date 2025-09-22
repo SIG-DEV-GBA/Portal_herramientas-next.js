@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import ToolCard from "./ToolCard";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser } from "@/shared/hooks/useCurrentUser";
+import { useCorporateColorClasses } from "@/shared/hooks/useCorporateColors";
 
 export type ToolItem = {
   key: string;
@@ -21,8 +22,8 @@ export default function ToolGridClient({ items }: { items: ToolItem[] }) {
   const [tag, setTag] = useState<string>("");
   const { isAdmin } = useCurrentUser();
 
-  // Solo filtro de Fichas
-  const allowedTags = ["Fichas"] as const;
+  // Filtros disponibles
+  const allowedTags = ["Fichas", "Administración"] as const;
 
   const filtered = useMemo(() => {
     const qn = q.trim().toLowerCase();
@@ -41,28 +42,48 @@ export default function ToolGridClient({ items }: { items: ToolItem[] }) {
     });
   }, [items, q, tag, isAdmin]);
 
+  const { colors } = useCorporateColorClasses();
+
   return (
     <>
-      {/* Filtros */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="relative w-full md:w-80">
+      {/* Filtros Modernos */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-8">
+        <div className="relative flex-1 max-w-md">
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Buscar herramienta…"
-            className="w-full rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-[14px] text-[#111827]
-                       outline-none focus:ring-2 focus:ring-[#8E8D29]/30 focus:border-[#8E8D29] transition"
+            placeholder="Buscar herramienta..."
+            className="w-full h-12 rounded-xl border-2 border-slate-200 bg-white/80 backdrop-blur-sm px-4 pr-20 
+                       text-slate-800 placeholder-slate-400 transition-all duration-200 ease-out
+                       focus:bg-white focus:border-transparent focus:ring-2 focus:outline-none
+                       hover:border-slate-300"
+            style={{ 
+              '--tw-ring-color': colors.primary + '40'
+            } as any}
+            onFocus={(e) => {
+              e.target.style.setProperty('--tw-ring-color', colors.primary + '40');
+              e.target.classList.add('ring-2');
+            }}
+            onBlur={(e) => {
+              e.target.classList.remove('ring-2');
+            }}
           />
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-[#9ca3af]">
-            Enter
-          </span>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-md">
+            <span className="text-xs font-medium text-slate-500">Enter</span>
+          </div>
         </div>
 
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-3 flex-wrap">
           <button
             onClick={() => setTag("")}
-            className={`px-3 py-1.5 rounded-lg border text-[13px] transition
-                        ${!tag ? "bg-[#8E8D29] text-white border-[#8E8D29]" : "bg-white text-[#374151] border-[#e5e7eb]"}`}
+            className={`px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all duration-200 ${
+              !tag 
+                ? "text-white border-transparent shadow-lg shadow-black/10" 
+                : "bg-white/80 backdrop-blur-sm text-slate-700 border-white/30 hover:bg-white hover:shadow-md"
+            }`}
+            style={!tag ? { 
+              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.accent} 100%)`
+            } : {}}
           >
             Todas
           </button>
@@ -70,8 +91,14 @@ export default function ToolGridClient({ items }: { items: ToolItem[] }) {
             <button
               key={t}
               onClick={() => setTag(tag === t ? "" : t)}
-              className={`px-3 py-1.5 rounded-lg border text-[13px] transition
-                          ${tag === t ? "bg-[#8E8D29] text-white border-[#8E8D29]" : "bg-white text-[#374151] border-[#e5e7eb]"}`}
+              className={`px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all duration-200 ${
+                tag === t 
+                  ? "text-white border-transparent shadow-lg shadow-black/10" 
+                  : "bg-white/80 backdrop-blur-sm text-slate-700 border-white/30 hover:bg-white hover:shadow-md"
+              }`}
+              style={tag === t ? { 
+                background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.accent} 100%)`
+              } : {}}
             >
               {t}
             </button>
@@ -79,8 +106,8 @@ export default function ToolGridClient({ items }: { items: ToolItem[] }) {
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {/* Grid Moderno */}
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {filtered.map(i => (
           <ToolCard
             key={i.key}
@@ -93,8 +120,16 @@ export default function ToolGridClient({ items }: { items: ToolItem[] }) {
           />
         ))}
         {!filtered.length && (
-          <div className="col-span-full text-center text-[#6b7280] text-sm py-10 border rounded-xl bg-white">
-            No hay resultados para “{q}”.
+          <div className="col-span-full text-center py-16">
+            <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl p-8 shadow-lg">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
+                <span className="text-2xl">🔍</span>
+              </div>
+              <h3 className="text-lg font-semibold text-slate-700 mb-2">No hay resultados</h3>
+              <p className="text-slate-500">
+                No se encontraron herramientas que coincidan con "{q}".
+              </p>
+            </div>
           </div>
         )}
       </div>

@@ -26,6 +26,9 @@ export async function GET(req: NextRequest) {
     const trabajador_id = toInt(sp.get("trabajador_id"));
     const trabajador_subida_id = toInt(sp.get("trabajador_subida_id"));
 
+    // Filtros de destaque
+    const destaque_principal = sp.get("destaque_principal");
+    const destaque_secundario = sp.get("destaque_secundario");
 
     // --- periodo: año/mes numérico (1..12) o rango libre
     const anio = toInt(sp.get("anio"));
@@ -45,6 +48,23 @@ export async function GET(req: NextRequest) {
         // todo el año
         desde = new Date(Date.UTC(anio, 0, 1, 0, 0, 0));
         hasta = new Date(Date.UTC(anio + 1, 0, 1, 0, 0, 0)); // exclusivo
+      }
+    } else {
+      // Sin año específico - obtener rango completo de la BD
+      const rangeResult = await prisma.$queryRaw<Array<{min_date: Date, max_date: Date}>>`
+        SELECT 
+          MIN(created_at) as min_date,
+          MAX(created_at) as max_date 
+        FROM fichas
+      `;
+      
+      if (rangeResult.length > 0 && rangeResult[0].min_date && rangeResult[0].max_date) {
+        desde = rangeResult[0].min_date;
+        hasta = new Date(rangeResult[0].max_date.getTime() + 24 * 60 * 60 * 1000);
+      } else {
+        // Fallback si no hay datos
+        desde = new Date(Date.UTC(2020, 0, 1, 0, 0, 0));
+        hasta = new Date(Date.UTC(2030, 0, 1, 0, 0, 0));
       }
     }
 
@@ -89,6 +109,16 @@ export async function GET(req: NextRequest) {
     }
     if (trabajador_id)        { whereParts.push("f.trabajador_id = ?"); params.push(trabajador_id); }
     if (trabajador_subida_id) { whereParts.push("f.trabajador_subida_id = ?"); params.push(trabajador_subida_id); }
+
+    // Filtros de destaque (lógica inclusiva)
+    const { generateDestaqueSqlFilters } = await import('@/lib/utils/destaque-filters');
+    const destaqueFilters = generateDestaqueSqlFilters({
+      destaque_principal,
+      destaque_secundario
+    }, 'f');
+    
+    whereParts.push(...destaqueFilters.whereParts);
+    params.push(...destaqueFilters.params);
 
     if (desde) { whereParts.push("f.created_at >= ?"); params.push(desde); }
     if (hasta) { whereParts.push("f.created_at < ?");  params.push(hasta); } // exclusivo si vino por año/mes
@@ -136,7 +166,24 @@ export async function GET(req: NextRequest) {
 
     const rows = await prisma.$queryRawUnsafe<any[]>(sql, ...params);
 
-    return NextResponse.json(serialize(rows));
+    // Calcular fichas únicas en el rango
+    const uniqueFichasSql = `
+      SELECT COUNT(DISTINCT f.id) as total_unique
+      FROM fichas f
+      ${whereSQL}
+    `;
+    const uniqueFichasResult = await prisma.$queryRawUnsafe<Array<{total_unique: number}>>(uniqueFichasSql, ...params);
+    
+    const response = {
+      data: rows,
+      metadata: {
+        total_unique_fichas: Number(uniqueFichasResult[0]?.total_unique || 0),
+        total_assignments: rows.reduce((sum, row) => sum + Number(row.total || 0), 0),
+        total_entries: rows.length
+      }
+    };
+
+    return NextResponse.json(serialize(response));
   } catch (e: any) {
     console.error("stats/ambitos-por-portal error:", e?.message, e);
     return NextResponse.json({ error: e?.message ?? "Internal error" }, { status: 500 });
